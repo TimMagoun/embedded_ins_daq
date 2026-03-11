@@ -1,9 +1,9 @@
 # Design Document
 ## Multi-Sensor Data Acquisition & Logging Hub — ESP32-P4-Nano
 
-**Version:** 0.1
+**Version:** 0.2
 **Status:** Draft
-**Last Updated:** 2026-03-10
+**Last Updated:** 2026-03-11
 **Target Platform:** Waveshare ESP32-P4-Nano
 **SDK:** ESP-IDF v5.4+
 
@@ -27,7 +27,7 @@
 
 | Resource | Detail |
 |----------|--------|
-| HP CPU | Dual-core RISC-V, 400 MHz, FPU + DSP |
+| HP CPU | Dual-core RISC-V, 360 MHz (max 400 MHz), FPU + DSP |
 | LP CPU | Single-core RISC-V, 40 MHz |
 | Internal SRAM | 768 KB (L2MEM) + 32 KB (LP SRAM) |
 | PSRAM | 32 MB (in-package, QSPI/OPI) |
@@ -50,7 +50,7 @@ The ESP32-P4-Nano is well-suited to this project:
 - **5 HP UARTs** provide exactly the peripherals needed for 4 sensor ports plus a debug console, each with 128-byte hardware FIFOs and DMA capability.
 - **4 GP timers** with 54-bit counters provide the microsecond-resolution monotonic clock and trigger generation.
 - **4 PCNT units** provide hardware edge capture on SYNC lines without CPU polling.
-- **Dual-core 400 MHz RISC-V** with 32 MB PSRAM provides ample compute and memory for concurrent parsing, logging, and networking.
+- **Dual-core 360 MHz RISC-V** with 32 MB PSRAM provides ample compute and memory for concurrent parsing, logging, and networking.
 - **Onboard Ethernet PHY and Wi-Fi coprocessor** satisfy the dual-network requirement without external hardware.
 - **SDIO 3.0 microSD slot** provides high-throughput SD card logging.
 
@@ -58,7 +58,7 @@ The ESP32-P4-Nano is well-suited to this project:
 
 - **Wi-Fi is indirect:** All Wi-Fi traffic passes through the ESP32-C6 over SDIO via ESP-Hosted. This adds latency (~1–2 ms) but is transparent to the application via the standard `esp_wifi` API.
 - **28 exposed GPIOs:** Pin planning is critical. The 4 sensor ports require 12 GPIOs (4× TX, RX, SYNC), plus UART0 is consumed by the USB-UART bridge for debug console.
-- **No built-in RTC with battery backup:** The board has an RTC battery header, but the ESP32-P4's internal RTC is a low-accuracy RC oscillator. An external RTC (e.g., DS3231 over I2C) is recommended for REQ-CLK-02 priority 2.
+- **No built-in RTC with battery backup:** The board has an RTC battery header, but the ESP32-P4's internal RTC is a low-accuracy RC oscillator. A **DS3231 external RTC** (connected via the onboard I2C bus) is required to satisfy REQ-CLK-02 priority 2. See §2.3.
 
 ---
 
@@ -66,7 +66,7 @@ The ESP32-P4-Nano is well-suited to this project:
 
 ### 2.1 Pin Allocation
 
-Pins consumed by onboard peripherals (fixed, cannot be reassigned):
+Pins consumed by onboard peripherals (fixed, cannot be reassigned). Sources: [Waveshare ESP32-P4-Nano schematic](https://files.waveshare.com/wiki/ESP32-P4-NANO/ESP32-P4-NANO-schematic.pdf) and [Waveshare Wiki](https://www.waveshare.com/wiki/ESP32-P4-Nano):
 
 | Function | Pins |
 |----------|------|
@@ -76,7 +76,7 @@ Pins consumed by onboard peripherals (fixed, cannot be reassigned):
 | I2C Bus | GPIO7 (SDA), GPIO8 (SCL) |
 | USB-UART (Console) | UART0 via USB-C bridge |
 
-Available header GPIOs for sensor ports (from the 28 exposed):
+Available header GPIOs for sensor ports (from the 28 exposed). Initial assignments use sequential GPIO groups from the available header pins; these are provisional and must be cross-referenced against the Waveshare schematic before PCB layout:
 
 | Sensor Port | UART Peripheral | TX Pin | RX Pin | SYNC Pin |
 |-------------|----------------|--------|--------|----------|
@@ -85,11 +85,11 @@ Available header GPIOs for sensor ports (from the 28 exposed):
 | Port 2 | UART3 | GPIO20 | GPIO21 | GPIO22 |
 | Port 3 | UART4 | GPIO23 | GPIO24 | GPIO25 |
 
-> **Note:** Exact GPIO assignments must be validated against the Waveshare schematic and the ESP32-P4 GPIO matrix capabilities. The ESP32-P4's GPIO matrix allows any UART signal to be routed to any GPIO, so assignments are flexible. The above are initial assignments chosen from available header pins.
+The ESP32-P4's GPIO matrix allows any UART signal to be routed to any GPIO, so assignments can be adjusted to match harness routing without firmware restructuring.
 
 ### 2.2 Physical Connector
 
-Each sensor port is a 5-pin JST-GH or Molex Picoblade connector wired:
+Each sensor port uses a **keyed panel-mount circular connector** with a flying lead harness to a 5-pin header on the PCB. The circular connector provides robust field mating and polarity protection. The 5 signals are wired:
 
 | Pin | Signal | Source |
 |-----|--------|--------|
@@ -280,7 +280,16 @@ The ESP-IDF UART driver reports `UART_BUFFER_FULL` and `UART_FIFO_OVF` events th
 
 #### Parser Framework (REQ-UART-04, REQ-UART-05)
 
-Parsers are implemented as a **vtable-based plugin interface**:
+**Design options considered:**
+
+| Approach | Pros | Cons |
+| -------- | ---- | ---- |
+| **Vtable (function-pointer struct)** — chosen | Idiomatic C, zero overhead, trivially unit-testable, no dynamic dispatch framework needed | Parsers registered at compile time (link-time); no runtime plugin loading |
+| Compile-time switch/enum dispatch | Simple, no indirection | `switch` must be modified in core firmware to add a parser — violates REQ-UART-04 |
+| Dynamic shared library (.so) | True runtime loading | No filesystem exec support on ESP32; impractical on bare-metal RTOS |
+| Scripting engine (Lua/MicroPython) | User-writable parsers without reflash | High memory overhead, nondeterministic timing, complex integration |
+
+The vtable approach is selected. It satisfies REQ-UART-04 (adding a parser does not modify core firmware, only a new translation unit is linked) and REQ-UART-05 (parser assignment is runtime-configurable) with minimal overhead:
 
 ```c
 typedef struct {
@@ -291,7 +300,8 @@ typedef struct {
 } parser_type_t;
 ```
 
-- `feed()` is called incrementally as bytes arrive. It returns `PARSE_INCOMPLETE`, `PARSE_COMPLETE` (with a pointer to the parsed packet), or `PARSE_ERROR`.
+- `feed()` is called as bytes arrive from the DMA ring buffer. It is a **streaming state machine**: it accepts an arbitrary chunk of bytes, advances its internal state, and returns `PARSE_INCOMPLETE`, `PARSE_COMPLETE` (with a pointer to the assembled packet in the parser's internal buffer), or `PARSE_ERROR`.
+- **Split-boundary handling:** Because `feed()` receives raw byte chunks from the DMA ring buffer, a chunk may contain the tail of one packet and the head of the next — or a packet may be split across multiple calls. This is handled correctly by the streaming state machine model: the parser holds state between calls and will finish the current packet from wherever it left off, then immediately begin accumulating the next. No framing is lost at chunk boundaries.
 - Parsers are registered at compile time in a `parser_registry[]` array. Adding a new parser requires only: (1) implement the three functions, (2) add an entry to the registry.
 - Parser assignment per port is stored in the runtime config and can be changed via the HTTP API before a session starts.
 
@@ -330,7 +340,7 @@ The `clock_mgr` task implements a clock discipline loop:
 1. **GNSS SYNC lock (Priority 1):** When a port is designated as clock master, its SYNC input edges are captured by the PCNT/ISR subsystem (§4.3). The `clock_mgr` receives these edge timestamps and compares successive intervals against the expected 1 PPS period (1,000,000 µs).
    - Drift = measured_interval − 1,000,000 µs.
    - The timer's prescaler is not adjusted (no hardware slew). Instead, a **software offset accumulator** applies a fractional correction to each timestamp read. This ensures the clock never jumps backward (REQ-CLK-03).
-   - The correction is applied as a slew: a configurable maximum rate (default: ±500 ns/s) limits how fast the software offset changes.
+   - The correction is applied as a slew: a configurable maximum rate limits how fast the software offset changes per second. **Slew rate sizing:** 1 ppm of clock error corresponds to 1 µs of drift per second. The ESP32-P4's 40 MHz XTAL is rated ±20 ppm, implying up to 20 µs/s of drift in the worst case. The default slew limit is **±50 µs/s** (50 ppm), which is large enough to track any realistic XTAL drift while still smoothing over momentary GNSS PPS glitches. A tighter limit (e.g., ±2 µs/s) would be appropriate for a low-drift oscillator such as the DS3231's ±2 ppm TCXO.
    - Drift measurements are logged as `REC_CLOCK_STATUS` records (REQ-CLK-04).
 
 2. **RTC fallback (Priority 2):** At startup, if no GNSS SYNC is present, the DS3231 RTC is read over I2C. The monotonic counter epoch is set to the RTC's UTC time (converted to microseconds since midnight). The RTC is read once at boot; it does not discipline the running counter.
@@ -401,7 +411,7 @@ mcpwm_timer_config_t timer_cfg = {
 - At 2 kHz, the period is 500 µs. The XTAL-derived 1 µs resolution provides 500 discrete steps within each period — more than sufficient.
 - Cycle-to-cycle jitter is determined by the XTAL stability (~±20 ppm = ±0.01 µs at 500 µs period), well within the ≤ 5 µs requirement (REQ-TRIG-02).
 
-**Trigger timestamping (REQ-TRIG-03):** The MCPWM peripheral fires an interrupt on each timer overflow (period start). The ISR reads the GP Timer counter and pushes a `REC_TRIGGER` event to the log queue. ISR latency (~500 ns) is negligible relative to the 1 µs precision requirement.
+**Trigger timestamping (REQ-TRIG-03):** The MCPWM peripheral fires an interrupt on each timer overflow (period start). The ISR reads the same shared GP Timer counter used by the SYNC edge ISR (§4.3) and pushes a `REC_TRIGGER` event to the log queue. This is a **separate ISR** from the GPIO SYNC edge handler — MCPWM overflow and GPIO edge are distinct interrupt sources. They share only the GP Timer as a common timebase, which is what ensures trigger timestamps and SYNC edge timestamps are directly comparable in the log. ISR latency (~500 ns) is negligible relative to the 1 µs precision requirement.
 
 ### 4.5 SD Card Logger
 
@@ -458,7 +468,11 @@ If no wall-clock time is available (free-running clock), filenames use a monoton
 
 #### Human-Readable Status Log (REQ-SD-04)
 
-A separate `.log` file in the same session directory contains timestamped plain-text lines:
+A separate `.log` file in the same session directory contains timestamped plain-text lines. Unlike the binary log, the `.log` file is **not pre-allocated** — status events are infrequent (a few lines per second at most) so write amplification from pre-allocation is not worthwhile. Corruption protection is provided by:
+
+- Each line is a complete, self-contained plain-text record terminated by `\n`; a partial write at power loss leaves at most one truncated line at the end, which is readable up to that point.
+- `fsync()` is called on the `.log` file descriptor after every write, flushing the FAT cluster chain.
+- The binary log's `session_complete` flag (§5.1) serves as the authoritative session integrity marker; the `.log` file is treated as advisory.
 
 ```
 [000000.000000] SESSION START clock_source=gnss_sync epoch=2026-03-10T14:30:25.000000Z
@@ -557,14 +571,32 @@ The HTTP server runs on Core 1 using the ESP-IDF `httpd` component, listening on
 |--------|------|-------------|-------------------|
 | GET | `/api/status` | Device status, clock source, uptime, per-port stats | Always available |
 | GET | `/api/parsers` | List available parser types | Always available |
-| GET | `/api/config` | Current configuration | Always available |
-| PUT | `/api/ports/{id}/parser` | Assign parser to port | Read-only during session |
+| GET | `/api/config` | Current configuration (active + pending if staged) | Always available |
+| PUT | `/api/ports/{id}/parser` | Assign parser to port | Rejected (409) during active session |
+| PUT | `/api/config` | Stage new config and reboot (see below) | Always available; stops active session first |
 | POST | `/api/session/start` | Start a logging session | No-op if already active |
-| POST | `/api/session/stop` | Stop the active session | No-op if not active |
+| POST | `/api/session/stop` | Stop the active session | Always available; no-op if not active |
 
 Request and response bodies are JSON, parsed/generated with `cJSON`.
 
-During an active session, `PUT` endpoints return HTTP 409 Conflict.
+#### Session Stop
+
+`POST /api/session/stop` is always accepted, including during an active session. On receipt, the logger flushes its write buffer, calls `fsync()`, writes the `session_complete` flag, and closes the session files before returning HTTP 200.
+
+#### Config Update and Reboot (`PUT /api/config`)
+
+Uploading a new configuration follows a **staged reboot with confirmation** flow to prevent a bad config from permanently locking the device out of the network:
+
+1. Client sends `PUT /api/config` with the new JSON body.
+2. Server validates the config. If invalid, returns HTTP 400 with error details — no change is made.
+3. If valid, the server:
+   - Writes the new config to `/sd/config_pending.json`.
+   - Stops any active session cleanly.
+   - Reboots into the new config.
+4. On boot with a `config_pending.json` present, the firmware loads it and **starts a 60-second confirmation timer**.
+   - If `POST /api/config/confirm` is received before the timer expires, the pending config is promoted to `/sd/config.json` and the timer is cancelled.
+   - If the timer expires without confirmation, the firmware reverts to the previous `/sd/config.json` and reboots again.
+5. This ensures that a config change that breaks network connectivity (wrong IP, bad SSID) self-reverts, because the client will be unable to reach the device to confirm.
 
 ### 4.9 Configuration
 
@@ -730,7 +762,7 @@ File: `/sd/config.json`
     "reconnect_interval_s": 5
   },
   "clock": {
-    "max_slew_rate_ppb": 500
+    "max_slew_rate_us_per_s": 50
   }
 }
 ```
@@ -753,7 +785,7 @@ File: `/sd/config.json`
 | ntrip enabled | false |
 | gga_interval_s | 10 |
 | reconnect_interval_s | 5 |
-| max_slew_rate_ppb | 500 |
+| max_slew_rate_us_per_s | 50 |
 
 ---
 
@@ -806,6 +838,7 @@ File: `/sd/config.json`
 
 ## Revision History
 
-| Version | Date | Notes |
-|---------|------|-------|
-| 0.1 | 2026-03-10 | Initial design targeting ESP32-P4-Nano |
+| Version | Date       | Notes                                                                              |
+|---------|------------|------------------------------------------------------------------------------------|
+| 0.1     | 2026-03-10 | Initial design targeting ESP32-P4-Nano                                             |
+| 0.2     | 2026-03-11 | PR review: CPU clock, DS3231, connector, parser framework, slew rate, HTTP API     |
