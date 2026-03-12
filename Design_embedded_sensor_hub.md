@@ -1,7 +1,7 @@
 # Design Document
 ## Multi-Sensor Data Acquisition & Logging Hub — ESP32-P4-Nano
 
-**Version:** 0.3
+**Version:** 0.5
 **Status:** Draft
 **Last Updated:** 2026-03-12
 **Target Platform:** Waveshare ESP32-P4-Nano
@@ -58,7 +58,7 @@ The ESP32-P4-Nano is well-suited to this project:
 
 - **Wi-Fi is indirect:** All Wi-Fi traffic passes through the ESP32-C6 over SDIO via ESP-Hosted. This adds latency (~1–2 ms) but is transparent to the application via the standard `esp_wifi` API.
 - **28 exposed GPIOs:** Pin planning is critical. The 4 sensor ports require 12 GPIOs (4× TX, RX, SYNC), plus UART0 is consumed by the USB-UART bridge for debug console.
-- **No built-in RTC with battery backup:** The board has an RTC battery header, but the ESP32-P4's internal RTC is a low-accuracy RC oscillator. A **DS3231 external RTC** (connected via the onboard I2C bus) is required to satisfy REQ-CLK-02 priority 2. See §2.3.
+- **No battery-backed absolute time in firmware:** The device clock is intentionally free-running only. If GNSS or RTC correlation is needed, it is performed offboard against captured device timestamps.
 
 ---
 
@@ -99,14 +99,7 @@ Each sensor port uses a **keyed panel-mount circular connector** with a flying l
 | 4 | TX (hub → sensor) | Mapped to UART peripheral TX |
 | 5 | SYNC | GPIO, direction configured per port |
 
-### 2.3 External RTC
-
-An external DS3231 RTC module connects via the onboard I2C bus (GPIO7/GPIO8). This provides:
-- ±2 ppm accuracy crystal oscillator
-- Battery-backed timekeeping across power cycles
-- Temperature-compensated output
-
-### 2.4 Power Budget
+### 2.3 Power Budget
 
 | Consumer | Estimated Current (3.3 V) |
 |----------|--------------------------|
@@ -115,7 +108,6 @@ An external DS3231 RTC module connects via the onboard I2C bus (GPIO7/GPIO8). Th
 | IP101GRI Ethernet PHY | ~50 mA |
 | SD Card (write bursts) | ~100 mA |
 | 4× Sensor ports (200 mA each max) | ~800 mA |
-| DS3231 RTC | ~1 mA |
 | **Total (worst case)** | **~1.3 A** |
 
 USB-C supply must provide ≥ 2 A at 5 V. A dedicated 5 V / 3 A supply is recommended for field use.
@@ -141,7 +133,6 @@ USB-C supply must provide ≥ 2 A at 5 V. A dedicated 5 V / 3 A supply is recomm
 | NTRIP Client | Custom (TCP socket over lwIP) | Project-specific |
 | JSON Config | `cJSON` | Bundled with ESP-IDF |
 | Watchdog | `esp_task_wdt.h` | ESP-IDF |
-| I2C (RTC) | `driver/i2c_master.h` | ESP-IDF |
 | Logging | `esp_log.h` | ESP-IDF |
 
 ### 3.2 Task Architecture
@@ -152,10 +143,10 @@ The firmware runs on FreeRTOS SMP across the two HP cores. Tasks are pinned to c
 ┌─────────────────────────────────────────────────────────────────┐
 │                        CORE 0 (Real-Time)                       │
 │                                                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐ │
-│  │  Clock Mgr   │  │ Trigger Gen  │  │   SYNC Edge Capture   │ │
-│  │  (highest)   │  │   (high)     │  │   (ISR + deferred)    │ │
-│  └──────────────┘  └──────────────┘  └───────────────────────┘ │
+│  ┌──────────────┐  ┌───────────────────────┐                   │
+│  │ Trigger Gen  │  │   SYNC Edge Capture   │                   │
+│  │   (high)     │  │   (ISR + deferred)    │                   │
+│  └──────────────┘  └───────────────────────┘                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │              UART RX Handler (4 ports)                   │   │
 │  │         ISR → DMA → Ring Buffer → Parse Task            │   │
@@ -180,7 +171,6 @@ The firmware runs on FreeRTOS SMP across the two HP cores. Tasks are pinned to c
 
 | Task | Core | Priority | Stack | Description |
 |------|------|----------|-------|-------------|
-| `clock_mgr` | 0 | 24 (highest) | 4 KB | Manages monotonic clock, GNSS discipline, drift tracking |
 | `trigger_gen` | 0 | 22 | 2 KB | Configures MCPWM for trigger output, timestamps pulses |
 | `sync_capture` | 0 | 22 | 4 KB | Deferred processing of SYNC edge ISR events |
 | `uart_rx[0-3]` | 0 | 20 | 4 KB each | Reads DMA ring buffers, invokes parser, timestamps packets |
@@ -190,7 +180,7 @@ The firmware runs on FreeRTOS SMP across the two HP cores. Tasks are pinned to c
 | `http_api` | 1 | 8 | 6 KB | REST API for parser assignment and session control |
 | `config_mgr` | 1 | 6 | 4 KB | Reads and validates SD card config at startup |
 
-Core 0 real-time task stacks (`clock_mgr`, `trigger_gen`, `sync_capture`, `uart_rx[]`) are allocated in **internal SRAM** for deterministic latency. Core 1 I/O/application task stacks are allocated in PSRAM.
+Core 0 real-time task stacks (`trigger_gen`, `sync_capture`, `uart_rx[]`) are allocated in **internal SRAM** for deterministic latency. Core 1 I/O/application task stacks are allocated in PSRAM.
 
 ### 3.4 Inter-Task Communication
 
@@ -209,7 +199,6 @@ Core 0 real-time task stacks (`clock_mgr`, `trigger_gen`, `sync_capture`, `uart_
     UART RX tasks  ──→  Log Buffer  (timestamped data records)
     SYNC Capture   ──→  Log Buffer  (edge event records)
     Trigger Gen    ──→  Log Buffer  (trigger event records)
-    Clock Mgr      ──→  Log Buffer  (clock status records)
     NTRIP Client   ──→  Log Buffer  (RTCM status records)
 ```
 
@@ -231,7 +220,7 @@ RTCM forwarding uses a non-blocking TX path (`uart_tx_chars()` in bounded chunks
 | Region | Size | Usage |
 |--------|------|-------|
 | Internal SRAM (768 KB) | ~192 KB | UART DMA buffers (4× 48 KB) |
-| | ~18 KB | Core 0 real-time task stacks |
+| | ~14 KB | Core 0 real-time task stacks |
 | | ~260 KB | ESP-IDF driver/runtime overhead (Ethernet + SDMMC + ESP-Hosted + lwIP + interrupts), measured target |
 | | ~298 KB | FreeRTOS kernel, heap metadata, control structures, guard headroom |
 | PSRAM (32 MB) | ~2 MB | Central log ring buffer (shared SD + UDP retention window) |
@@ -318,7 +307,7 @@ Both parsers annotate each complete packet with the associated SYNC event index 
 
 ### 4.2 Clock Subsystem
 
-**Satisfies:** REQ-CLK-01 through REQ-CLK-05
+**Satisfies:** REQ-CLK-01 through REQ-CLK-03
 
 #### Monotonic Clock (REQ-CLK-01)
 
@@ -336,23 +325,12 @@ This timer is **never reset** during a session. All timestamps across all subsys
 
 The 54-bit counter at 1 MHz overflows after ~571 years — effectively infinite.
 
-#### Clock Discipline (REQ-CLK-02, REQ-CLK-03, REQ-CLK-04)
+#### Free-Running Only Behavior (REQ-CLK-02, REQ-CLK-03)
 
-The `clock_mgr` task implements a clock discipline loop:
-
-1. **GNSS SYNC lock (Priority 1):** When a clock master port is configured, its SYNC input edges are captured by the GPIO ISR subsystem (§4.3). The `clock_mgr` receives these edge timestamps and compares successive intervals against the configured sync period (`clock.master_sync_period_us`, default 1,000,000 µs).
-   - Drift = measured_interval − master_sync_period_us.
-   - The timer's prescaler is not adjusted (no hardware slew). Instead, a **software offset accumulator** applies a fractional correction to each timestamp read. This ensures the clock never jumps backward (REQ-CLK-03).
-   - The correction is applied as a slew: a configurable maximum rate limits how fast the software offset changes per second. **Slew rate sizing:** 1 ppm of clock error corresponds to 1 µs of drift per second. The ESP32-P4's 40 MHz XTAL is rated ±20 ppm, implying up to 20 µs/s of drift in the worst case. The default slew limit is **±50 µs/s** (50 ppm), which is large enough to track any realistic XTAL drift while still smoothing over momentary GNSS PPS glitches. A tighter limit (e.g., ±2 µs/s) would be appropriate for a low-drift oscillator such as the DS3231's ±2 ppm TCXO.
-   - Drift measurements are logged as `REC_CLOCK_STATUS` records (REQ-CLK-04).
-
-2. **RTC fallback (Priority 2):** At startup, if no GNSS SYNC is present, the DS3231 RTC is read over I2C. The monotonic counter epoch is set to the RTC's UTC time (converted to microseconds since midnight). The RTC is read once at boot; it does not discipline the running counter.
-
-3. **Free-running fallback (Priority 3):** If no RTC is present or its time is invalid (oscillator-stop flag set), the counter starts from zero. The epoch is arbitrary but consistent within the session.
-
-#### Clock Source Transitions (REQ-CLK-05)
-
-Transitions between clock sources (e.g., free-running → GNSS locked) are logged as `REC_CLOCK_STATUS` records. The session header (§5) records the initial clock source and epoch reference.
+- The device clock is **never disciplined or adjusted** from GNSS SYNC, an RTC, or any network time source.
+- SYNC inputs are used only to timestamp edges and associate packets; they do not redefine the device clock.
+- Session logs and UDP streams carry only device-clock timestamps from the shared GP Timer.
+- If an operator needs absolute-time alignment to GNSS or RTC time, that correlation is performed offboard against recorded device timestamps.
 
 ### 4.3 Synchronization Subsystem
 
@@ -462,14 +440,7 @@ If any SD write/fsync call fails during an active session:
 
 #### File Naming (REQ-SD-05)
 
-```
-/sd/sessions/20260310_143025_001.bin    # Binary log (wall-clock timestamp + session counter)
-/sd/sessions/20260310_143025_001.log    # Human-readable status log
-```
-
-If no wall-clock time is available (free-running clock), filenames use a monotonic boot counter stored in NVS:
-
-```
+``` 
 /sd/sessions/session_00042.bin
 /sd/sessions/session_00042.log
 ```
@@ -490,10 +461,10 @@ A separate `.log` file in the same session directory contains timestamped plain-
 - The binary log's `session_complete` flag (§5.1) serves as the authoritative session integrity marker; the `.log` file is treated as advisory.
 
 ```
-[000000.000000] SESSION START clock_source=gnss_sync epoch=2026-03-10T14:30:25.000000Z
+[000000.000000] SESSION START session=session_00042
 [000001.234567] NTRIP connected to rtk2go.com:2101/MOUNTPT
 [000005.678901] UART2 overrun: 128 bytes lost
-[000312.456789] CLOCK drift=+3us source=gnss_sync
+[000312.456789] UDP eth state=backlogged
 ```
 
 ### 4.6 Network Subsystem
@@ -590,7 +561,7 @@ The HTTP server runs on Core 1 using the ESP-IDF `httpd` component, listening on
 
 | Method | Path | Description | Session Constraint |
 |--------|------|-------------|-------------------|
-| GET | `/api/status` | Device status, clock source, uptime, per-port stats | Always available |
+| GET | `/api/status` | Device status, uptime, current device-clock count, per-port stats | Always available |
 | GET | `/api/parsers` | List available parser types | Always available |
 | GET | `/api/config` | Current configuration (active + pending if staged) | Always available |
 | PUT | `/api/ports/{id}/parser` | Assign parser to port | Rejected (409) during active session |
@@ -661,13 +632,12 @@ Written once at the start of each log file. Header size is fixed at 256 bytes so
 ```
 Offset  Size  Field
 0       4     Magic: 0x44415148 ("DAQH")
-4       2     Format version (uint16, currently 2)
-6       1     Clock source at session start (0=free-running, 1=RTC, 2=GNSS)
-7       1     Reserved (0x00)
-8       8     Epoch reference (uint64, microseconds since Unix epoch, or 0 if free-running)
-16      2     Header length (uint16, fixed 256)
-18      2     Number of ports (uint16)
-20      N     Per-port descriptors (16 bytes each)
+4       2     Format version (uint16, currently 3)
+6       2     Header length (uint16, fixed 256)
+8       4     Session counter (uint32)
+12      8     Device clock at session start (uint64, microseconds since boot)
+20      2     Number of ports (uint16)
+22      N     Per-port descriptors (16 bytes each)
 252     1     session_complete flag (0x00 = incomplete, 0x01 = complete)
 253     3     Reserved / padding (0x00)
 ```
@@ -704,7 +674,6 @@ Offset  Size  Field
 | 0x01 | `REC_DATA` | port_index(1) + sync_seq(4) + raw_packet_bytes(N) |
 | 0x02 | `REC_SYNC_EDGE` | port_index(1) + edge(1: 0=fall,1=rise) |
 | 0x03 | `REC_TRIGGER` | port_index(1) + pulse_width_us(2) |
-| 0x04 | `REC_CLOCK_STATUS` | source(1) + drift_ns(4, signed) + slew_rate_ppb(4, signed) |
 | 0x05 | `REC_NET_STATUS` | interface(1: 0=eth,1=wifi) + state(1: 0=streaming,1=backlogged,2=disconnected) |
 | 0x06 | `REC_NTRIP_STATUS` | state(1: 0=disconnected,1=connected) + bytes_forwarded(4) |
 | 0x07 | `REC_SYNC_GAP` | port_index(1) + missed_count(2) |
@@ -787,16 +756,9 @@ File: `/sd/config.json`
     "network_interface": "auto",
     "gga_interval_s": 10,
     "reconnect_interval_s": 5
-  },
-  "clock": {
-    "master_port_index": 0,
-    "master_sync_period_us": 1000000,
-    "max_slew_rate_us_per_s": 50
   }
 }
 ```
-
-`clock.master_port_index` may be any valid port index (`0-3`) or `null` (no GNSS clock master; RTC/free-running clock sources only).
 
 **Required fields and defaults:**
 
@@ -805,7 +767,6 @@ File: `/sd/config.json`
 | Runtime behavior for missing/invalid required fields | Config rejected; system blocks session start |
 | `trigger.enabled` omitted | `false` |
 | `ntrip.network_interface` omitted | `auto` |
-| `clock.master_sync_period_us` omitted | `1000000` |
 
 ---
 
@@ -825,15 +786,13 @@ File: `/sd/config.json`
 | REQ-TRIG-02 | §4.4 | MCPWM driven by XTAL clock; jitter < 1 µs |
 | REQ-TRIG-03 | §4.4 | MCPWM overflow ISR timestamps each pulse via GP Timer |
 | REQ-CLK-01 | §4.2 | GP Timer Group 0, Timer 0: free-running 1 µs counter |
-| REQ-CLK-02 | §4.2 | Three-priority clock source selection at startup |
-| REQ-CLK-03 | §4.2 | Software slew-rate offset accumulator; clock never jumps backward |
-| REQ-CLK-04 | §4.2 | Drift measured at each GNSS PPS edge, logged as `REC_CLOCK_STATUS` |
-| REQ-CLK-05 | §4.2 | Source transitions logged; session header records initial source |
+| REQ-CLK-02 | §4.2 | No external time discipline or source switching in firmware |
+| REQ-CLK-03 | §4.2, §5 | Logs and streams carry only device-clock timestamps; absolute-time correlation is offboard |
 | REQ-SD-01 | §3.4, §4.5 | SPMC log ring defines retention window; SD overrun logged with continued best-effort writes |
-| REQ-SD-02 | §5 | Binary TLV format: data packets, clock records, error records |
+| REQ-SD-02 | §5 | Binary TLV format: data packets, event records, error records |
 | REQ-SD-03 | §5 | Fixed 256-byte header, deterministic completion flag offset, CRC-16 integrity |
 | REQ-SD-04 | §4.5 | Separate `.log` file with timestamped plain-text lines |
-| REQ-SD-05 | §4.5 | Wall-clock timestamp or NVS boot counter in filenames |
+| REQ-SD-05 | §4.5 | NVS-backed monotonic session counter in filenames |
 | REQ-SD-06 | §4.5 | Pre-allocated file, periodic `fsync()`, self-delimiting records |
 | REQ-NET-01 | §4.6 | IP101GRI Ethernet + ESP32-C6 Wi-Fi; DHCP/static via config |
 | REQ-NET-02 | §4.6 | Dual independent UDP sockets, configurable destination and payload size |
@@ -861,6 +820,7 @@ File: `/sd/config.json`
 | Version | Date       | Notes                                                                              |
 |---------|------------|------------------------------------------------------------------------------------|
 | 0.1     | 2026-03-10 | Initial design targeting ESP32-P4-Nano                                             |
-| 0.2     | 2026-03-11 | PR review: CPU clock, DS3231, connector, parser framework, slew rate, HTTP API     |
+| 0.2     | 2026-03-11 | PR review: CPU clock, connector, parser framework, HTTP API     |
 | 0.3     | 2026-03-12 | Addressed outstanding PR comments: SPMC buffering, fixed header, CRC-16, sequence IDs, strict config validation, failure-mode handling, trigger/clock schema updates |
 | 0.4     | 2026-03-12 | New PR comments: simplified UDP buffering (shared SPMC window), SD lag best-effort behavior, sync-only packet association, configurable clock master sync period |
+| 0.5     | 2026-03-12 | Removed clock discipline and RTC/time-master support; all timestamps are free-running device-clock values |

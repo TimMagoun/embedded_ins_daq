@@ -1,7 +1,7 @@
 # Product Requirements Document
 ## Multi-Sensor Data Acquisition & Logging Hub
 
-**Version:** 0.8  
+**Version:** 0.9  
 **Status:** Active  
 **Last Updated:** 2026-03-12
 
@@ -9,7 +9,7 @@
 
 ## 1. Overview
 
-The device is an embedded sensor hub that acquires data from multiple UART sensors simultaneously, captures SYNC/trigger/clock timestamps with microsecond precision, logs data to an SD card, and streams data over Wi-Fi and Ethernet. It also receives RTCM correction streams from an NTRIP caster and forwards them to connected GNSS sensors.
+The device is an embedded sensor hub that acquires data from multiple UART sensors simultaneously, captures SYNC/trigger/device-clock timestamps with microsecond precision, logs data to an SD card, and streams data over Wi-Fi and Ethernet. It also receives RTCM correction streams from an NTRIP caster and forwards them to connected GNSS sensors. Correlation between device-clock timestamps and GNSS or RTC time, if needed, is handled offboard.
 
 **Primary use cases:** GNSS/IMU fusion, robotics sensor synchronization, and field data logging.
 
@@ -60,27 +60,18 @@ All ports shall be functionally identical and capable of operating concurrently.
 ## 5. Timing & Clock
 
 - **REQ-CLK-01:** The device shall maintain a single monotonically increasing microsecond-resolution clock. All logged timestamps shall be derived from this clock.
-- **REQ-CLK-02:** The clock source shall follow this priority order:
-
-  | Priority | Source | Condition |
-  |----------|--------|-----------|
-  | 1 | GNSS SYNC pulse | A port is designated as clock master and a consistent periodic SYNC input is present at configured period |
-  | 2 | On-board RTC | RTC is present and holds a valid time |
-  | 3 | Free-running counter | Fallback; epoch is arbitrary but consistent within a session |
-
-- **REQ-CLK-03:** When locked to a GNSS SYNC signal, the device shall correct clock drift using slew-rate adjustment — the clock shall never jump backward. The maximum slew rate and expected SYNC period for the clock master shall be configurable.
-- **REQ-CLK-04:** Clock drift relative to the GNSS SYNC signal shall be measured and logged at each pulse.
-- **REQ-CLK-05:** Clock source transitions shall be logged. Each session log file shall record the clock source and epoch reference at session start.
+- **REQ-CLK-02:** The clock shall be free-running only. GNSS SYNC inputs, RTCs, and network time sources shall not adjust, discipline, or redefine the device clock during startup or runtime.
+- **REQ-CLK-03:** Session logs and live streams shall record only device-clock timestamps. Any correlation to GNSS time, RTC time, or other absolute time references shall be performed by offboard tools.
 
 ---
 
 ## 6. SD Card Logging
 
 - **REQ-SD-01:** The device shall log all data to SD card (SDHC/SDXC, 32 GB or larger). SD writes shall not stall sensor acquisition, timestamping, or UART reception. If SD consumption lags beyond the available in-memory retention window, the device shall log an error and continue best-effort SD logging without ending the active session.
-- **REQ-SD-02:** The following shall be logged in a structured binary format: timestamped data packets per port, clock status records, and device error/status records.
+- **REQ-SD-02:** The following shall be logged in a structured binary format: timestamped data packets per port, timestamped sync/trigger/network/NTRIP event records, and device error/status records.
 - **REQ-SD-03:** The binary log format shall be self-describing and versioned, with a session header and a published specification sufficient to implement a reader without access to firmware source.
 - **REQ-SD-04:** Device errors and status events shall be written to a separate human-readable log file on the SD card.
-- **REQ-SD-05:** Log filenames shall incorporate a wall-clock timestamp or monotonic session counter to be unique across power cycles.
+- **REQ-SD-05:** Log filenames shall incorporate a monotonic session counter to be unique across power cycles.
 - **REQ-SD-06:** On unclean power loss, all records fully written before the event shall remain intact.
 
 ---
@@ -112,7 +103,7 @@ All ports shall be functionally identical and capable of operating concurrently.
 
 ## 9. Configuration
 
-- **REQ-CFG-01:** All operational parameters shall be configurable via a structured file on the SD card, read at startup. This includes: per-port UART settings, parser assignments, and SYNC direction; trigger rate and pulse width; network addresses and IP mode; NTRIP parameters; GNSS clock master port; clock-master SYNC period; GGA source port and interval; and clock slew rate limit.
+- **REQ-CFG-01:** All operational parameters shall be configurable via a structured file on the SD card, read at startup. This includes: per-port UART settings, parser assignments, and SYNC direction; trigger rate and pulse width; network addresses and IP mode; and NTRIP parameters including GGA source port and interval.
 - **REQ-CFG-02:** Configuration shall be validated at startup. Errors shall be logged. The device shall halt or fall back to documented defaults per parameter.
 - **REQ-CFG-03:** The device shall expose an HTTP API over its network interfaces allowing parser assignment per port and session start/stop. The API shall be read-only during an active session and shall enumerate available parser types.
 
@@ -138,3 +129,4 @@ All ports shall be functionally identical and capable of operating concurrently.
 | 0.6 | 2026-03-09 | Consolidated and simplified; eliminated redundant requirements; restructured for clarity |
 | 0.7 | 2026-03-09 | REQ-SYNC-03: association at capture time with nominal rate resync; REQ-SD-02: simplified to timestamped data packets; REQ-NET-06: in-memory buffer capped at 500 KB per interface |
 | 0.8 | 2026-03-12 | Updated requirements per new PR comments: shared retention window for UDP, SD lag best-effort behavior, SYNC association as primary packet timing, configurable clock-master SYNC period |
+| 0.9 | 2026-03-12 | Removed clock discipline and time-master support; device timestamps are free-running only and absolute-time correlation moves offboard |
