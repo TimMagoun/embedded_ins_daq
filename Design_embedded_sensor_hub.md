@@ -1,9 +1,9 @@
 # Design Document
 ## Multi-Sensor Data Acquisition & Logging Hub — ESP32-P4-Nano
 
-**Version:** 0.2
+**Version:** 0.3
 **Status:** Draft
-**Last Updated:** 2026-03-11
+**Last Updated:** 2026-03-12
 **Target Platform:** Waveshare ESP32-P4-Nano
 **SDK:** ESP-IDF v5.4+
 
@@ -49,7 +49,7 @@ The ESP32-P4-Nano is well-suited to this project:
 
 - **5 HP UARTs** provide exactly the peripherals needed for 4 sensor ports plus a debug console, each with 128-byte hardware FIFOs and DMA capability.
 - **4 GP timers** with 54-bit counters provide the microsecond-resolution monotonic clock and trigger generation.
-- **4 PCNT units** provide hardware edge capture on SYNC lines without CPU polling.
+- **GPIO interrupt latency is sub-microsecond** on the HP cores, sufficient for the ≤1 µs SYNC timestamp requirement without PCNT complexity.
 - **Dual-core 360 MHz RISC-V** with 32 MB PSRAM provides ample compute and memory for concurrent parsing, logging, and networking.
 - **Onboard Ethernet PHY and Wi-Fi coprocessor** satisfy the dual-network requirement without external hardware.
 - **SDIO 3.0 microSD slot** provides high-throughput SD card logging.
@@ -131,7 +131,6 @@ USB-C supply must provide ≥ 2 A at 5 V. A dedicated 5 V / 3 A supply is recomm
 | RTOS | FreeRTOS (SMP) | Built into ESP-IDF |
 | UART Driver | `driver/uart.h` | ESP-IDF |
 | GP Timer | `driver/gptimer.h` | ESP-IDF |
-| PCNT | `driver/pulse_cnt.h` | ESP-IDF |
 | MCPWM | `driver/mcpwm_timer.h`, `mcpwm_oper.h`, `mcpwm_gen.h` | ESP-IDF |
 | GPIO | `driver/gpio.h` | ESP-IDF |
 | SD/MMC | `driver/sdmmc_host.h`, `esp_vfs_fat.h` | ESP-IDF |
@@ -185,21 +184,21 @@ The firmware runs on FreeRTOS SMP across the two HP cores. Tasks are pinned to c
 | `trigger_gen` | 0 | 22 | 2 KB | Configures MCPWM for trigger output, timestamps pulses |
 | `sync_capture` | 0 | 22 | 4 KB | Deferred processing of SYNC edge ISR events |
 | `uart_rx[0-3]` | 0 | 20 | 4 KB each | Reads DMA ring buffers, invokes parser, timestamps packets |
-| `sd_logger` | 1 | 12 | 8 KB | Drains log queue to SD card in large sequential writes |
-| `udp_streamer` | 1 | 12 | 8 KB | Drains log queue to UDP sockets (Wi-Fi + Ethernet) |
+| `sd_logger` | 1 | 12 | 8 KB | Drains central log buffer to SD card in large sequential writes |
+| `udp_streamer` | 1 | 12 | 8 KB | Drains central log buffer to UDP sockets (Wi-Fi + Ethernet) |
 | `ntrip_client` | 1 | 10 | 8 KB | TCP connection to NTRIP caster, RTCM forwarding, GGA upload |
 | `http_api` | 1 | 8 | 6 KB | REST API for parser assignment and session control |
 | `config_mgr` | 1 | 6 | 4 KB | Reads and validates SD card config at startup |
 
-All task stacks are allocated in PSRAM to conserve internal SRAM for DMA buffers and critical data structures.
+Core 0 real-time task stacks (`clock_mgr`, `trigger_gen`, `sync_capture`, `uart_rx[]`) are allocated in **internal SRAM** for deterministic latency. Core 1 I/O/application task stacks are allocated in PSRAM.
 
 ### 3.4 Inter-Task Communication
 
 ```
                     ┌─────────────────────────┐
-                    │    Central Log Queue     │
-                    │  (FreeRTOS Queue in      │
-                    │   PSRAM, ~2 MB)          │
+                    │   Central Log Buffer     │
+                    │ (custom SPMC ring in     │
+                    │  PSRAM, ~2 MB)           │
                     └─────┬──────────┬─────────┘
                           │          │
               ┌───────────▼──┐  ┌───▼───────────┐
@@ -207,36 +206,42 @@ All task stacks are allocated in PSRAM to conserve internal SRAM for DMA buffers
               └──────────────┘  └────────────────┘
 
   Producers:
-    UART RX tasks  ──→  Log Queue  (timestamped data records)
-    SYNC Capture   ──→  Log Queue  (edge event records)
-    Trigger Gen    ──→  Log Queue  (trigger event records)
-    Clock Mgr      ──→  Log Queue  (clock status records)
-    NTRIP Client   ──→  Log Queue  (RTCM status records)
+    UART RX tasks  ──→  Log Buffer  (timestamped data records)
+    SYNC Capture   ──→  Log Buffer  (edge event records)
+    Trigger Gen    ──→  Log Buffer  (trigger event records)
+    Clock Mgr      ──→  Log Buffer  (clock status records)
+    NTRIP Client   ──→  Log Buffer  (RTCM status records)
 ```
 
-The log queue uses a **multi-reader pattern**: each consumer (SD Logger, UDP Streamer) maintains its own read pointer into a shared ring buffer in PSRAM. This avoids duplicating data and allows each consumer to proceed at its own pace.
+The central log buffer is a custom **single-producer, multi-consumer (SPMC) ring** in PSRAM. A dedicated `log_mux` task is the only producer into this ring; all source tasks push records into small per-source SPSC mailboxes consumed by `log_mux`. This avoids multi-producer contention in ISR paths while allowing independent consumer read pointers.
 
-**RTCM data path** (separate from log queue):
+- The SPMC capacity is the designed retention window for all consumers (SD + UDP). At worst-case ingress (~400 KB/s including metadata), a 2 MB ring provides ~5 seconds of history.
+- If the SD consumer lags beyond available SPMC history, firmware logs `REC_ERROR/ERR_SD_BACKPRESSURE` and continues best-effort logging (session is not force-stopped).
+- UDP interfaces use the same SPMC retention window (no dedicated retransmit ring). If a UDP consumer lags past retention, dropped stream data is reported as INFO-level status (`REC_STATUS` / `udp_drop`).
+
+**RTCM data path** (separate from central log buffer):
 ```
   NTRIP Client ──TCP──→ RTCM Buffer ──UART TX──→ Designated sensor port(s)
 ```
 
-RTCM data is written directly to the target UART TX FIFOs via `uart_write_bytes()`, which is non-blocking when the hardware FIFO has space. A dedicated 4 KB ring buffer per target port absorbs bursts.
+RTCM forwarding uses a non-blocking TX path (`uart_tx_chars()` in bounded chunks) with a dedicated 4 KB software ring buffer per target port. If the ring is full, oldest pending RTCM bytes are dropped and `REC_ERROR/ERR_RTCM_TX_OVERRUN` is logged (required behavior).
 
 ### 3.5 Memory Map
 
 | Region | Size | Usage |
 |--------|------|-------|
-| Internal SRAM (768 KB) | ~200 KB | UART DMA buffers (4× 32 KB), ISR stacks, critical data |
-| | ~100 KB | FreeRTOS kernel, heap metadata, driver state |
-| | ~468 KB | Reserved / headroom |
-| PSRAM (32 MB) | ~2 MB | Central log ring buffer |
-| | ~1 MB | UDP retransmit buffers (500 KB × 2 interfaces) |
-| | ~512 KB | Task stacks |
+| Internal SRAM (768 KB) | ~192 KB | UART DMA buffers (4× 48 KB) |
+| | ~18 KB | Core 0 real-time task stacks |
+| | ~260 KB | ESP-IDF driver/runtime overhead (Ethernet + SDMMC + ESP-Hosted + lwIP + interrupts), measured target |
+| | ~298 KB | FreeRTOS kernel, heap metadata, control structures, guard headroom |
+| PSRAM (32 MB) | ~2 MB | Central log ring buffer (shared SD + UDP retention window) |
+| | ~494 KB | Core 1 task stacks and application heaps |
 | | ~256 KB | HTTP server buffers, cJSON workspace |
-| | ~28 MB | Available headroom |
+| | ~29 MB | Available headroom |
 | Flash (16 MB) | ~2 MB | Firmware image |
-| | ~14 MB | OTA partition, NVS, etc. |
+| | ~14 MB | OTA-reserved partition (future feature), NVS, config, logs metadata |
+
+Internal SRAM estimates are verified in a representative `sdkconfig` by initializing Ethernet + SDMMC + ESP-Hosted + 4 UARTs and recording `heap_caps_get_free_size(MALLOC_CAP_INTERNAL)` before and after each subsystem bring-up.
 
 ---
 
@@ -274,7 +279,7 @@ At lower baud rates, the same buffer provides even more headroom (e.g., at 11520
 #### Buffer Overrun Detection (REQ-UART-03)
 
 The ESP-IDF UART driver reports `UART_BUFFER_FULL` and `UART_FIFO_OVF` events through the event queue. The `uart_rx` task monitors these events and, on detection:
-1. Logs an overrun record to the central log queue (record type `REC_ERROR`, subtype `ERR_UART_OVERRUN`, with port index and timestamp).
+1. Logs an overrun record to the central log buffer (record type `REC_ERROR`, subtype `ERR_UART_OVERRUN`, with port index and timestamp).
 2. Flushes the UART RX FIFO to resynchronize.
 3. Increments a per-port overrun counter reported in telemetry.
 
@@ -309,9 +314,7 @@ typedef struct {
 - **NMEA 0183:** Scans for `$` start, accumulates until `\r\n`, validates checksum. Emits complete sentences as opaque byte blobs (no field parsing on-device).
 - **UBX Binary:** State machine scanning for `0xB5 0x62` sync bytes, reads class/ID/length, accumulates payload, validates Fletcher-16 checksum.
 
-Both parsers annotate each complete packet with:
-- Receive timestamp (from the monotonic clock at the moment the first byte of the packet entered the DMA buffer, interpolated from the byte position and baud rate).
-- Associated SYNC event index (see §4.3).
+Both parsers annotate each complete packet with the associated SYNC event index (see §4.3). Per-packet receive timestamp interpolation is not required in this revision; SYNC timing is the source of truth.
 
 ### 4.2 Clock Subsystem
 
@@ -337,8 +340,8 @@ The 54-bit counter at 1 MHz overflows after ~571 years — effectively infinite.
 
 The `clock_mgr` task implements a clock discipline loop:
 
-1. **GNSS SYNC lock (Priority 1):** When a port is designated as clock master, its SYNC input edges are captured by the PCNT/ISR subsystem (§4.3). The `clock_mgr` receives these edge timestamps and compares successive intervals against the expected 1 PPS period (1,000,000 µs).
-   - Drift = measured_interval − 1,000,000 µs.
+1. **GNSS SYNC lock (Priority 1):** When a clock master port is configured, its SYNC input edges are captured by the GPIO ISR subsystem (§4.3). The `clock_mgr` receives these edge timestamps and compares successive intervals against the configured sync period (`clock.master_sync_period_us`, default 1,000,000 µs).
+   - Drift = measured_interval − master_sync_period_us.
    - The timer's prescaler is not adjusted (no hardware slew). Instead, a **software offset accumulator** applies a fractional correction to each timestamp read. This ensures the clock never jumps backward (REQ-CLK-03).
    - The correction is applied as a slew: a configurable maximum rate limits how fast the software offset changes per second. **Slew rate sizing:** 1 ppm of clock error corresponds to 1 µs of drift per second. The ESP32-P4's 40 MHz XTAL is rated ±20 ppm, implying up to 20 µs/s of drift in the worst case. The default slew limit is **±50 µs/s** (50 ppm), which is large enough to track any realistic XTAL drift while still smoothing over momentary GNSS PPS glitches. A tighter limit (e.g., ±2 µs/s) would be appropriate for a low-drift oscillator such as the DS3231's ±2 ppm TCXO.
    - Drift measurements are logged as `REC_CLOCK_STATUS` records (REQ-CLK-04).
@@ -357,7 +360,7 @@ Transitions between clock sources (e.g., free-running → GNSS locked) are logge
 
 #### SYNC Edge Capture (REQ-SYNC-01, REQ-SYNC-02)
 
-Each port's SYNC pin is configured as a GPIO interrupt source when operating as an input:
+Each port's SYNC pin is configured as a GPIO interrupt source when operating as `sync_direction: "input"`:
 
 ```c
 gpio_config_t sync_cfg = {
@@ -379,7 +382,7 @@ typedef struct {
 } sync_event_t;
 ```
 
-The `sync_capture` task dequeues these events and writes `REC_SYNC_EDGE` records to the central log queue.
+The `sync_capture` task dequeues these events and writes `REC_SYNC_EDGE` records to the central log buffer.
 
 #### Packet–SYNC Association (REQ-SYNC-03)
 
@@ -410,8 +413,11 @@ mcpwm_timer_config_t timer_cfg = {
 - Pulse width is configured via the MCPWM comparator: the generator drives the SYNC output pin high on timer zero, low on compare match.
 - At 2 kHz, the period is 500 µs. The XTAL-derived 1 µs resolution provides 500 discrete steps within each period — more than sufficient.
 - Cycle-to-cycle jitter is determined by the XTAL stability (~±20 ppm = ±0.01 µs at 500 µs period), well within the ≤ 5 µs requirement (REQ-TRIG-02).
+- Trigger capability is per-port and independent: any subset of ports may be configured as trigger outputs simultaneously.
+- A port is mutually exclusive between SYNC input and trigger output (`sync_direction` is either `input` or `output`).
+- UART RX/TX functionality remains available when a port is a trigger output because MCPWM and UART use different GPIO matrix routes.
 
-**Trigger timestamping (REQ-TRIG-03):** The MCPWM peripheral fires an interrupt on each timer overflow (period start). The ISR reads the same shared GP Timer counter used by the SYNC edge ISR (§4.3) and pushes a `REC_TRIGGER` event to the log queue. This is a **separate ISR** from the GPIO SYNC edge handler — MCPWM overflow and GPIO edge are distinct interrupt sources. They share only the GP Timer as a common timebase, which is what ensures trigger timestamps and SYNC edge timestamps are directly comparable in the log. ISR latency (~500 ns) is negligible relative to the 1 µs precision requirement.
+**Trigger timestamping (REQ-TRIG-03):** The MCPWM peripheral fires an interrupt on each timer overflow (period start). The ISR reads the same shared GP Timer counter used by the SYNC edge ISR (§4.3) and pushes a `REC_TRIGGER` event to the central log buffer. This is a **separate ISR** from the GPIO SYNC edge handler — MCPWM overflow and GPIO edge are distinct interrupt sources. They share only the GP Timer as a common timebase, which is what ensures trigger timestamps and SYNC edge timestamps are directly comparable in the log. ISR latency (~500 ns) is negligible relative to the 1 µs precision requirement.
 
 ### 4.5 SD Card Logger
 
@@ -444,6 +450,15 @@ This pattern ensures:
 - SD writes are large and sequential, maximizing throughput (typical: 5–10 MB/s on a Class 10 card in 4-bit mode).
 - The 100 ms maximum latency ensures data reaches the card promptly even at low data rates.
 - Sensor acquisition, timestamping, and UART reception run on Core 0 and are never blocked by SD I/O on Core 1.
+- The maximum no-drop window is defined by the SPMC ring depth at current ingress rate (configured design target: ~5 seconds at worst-case ingress).
+
+#### SD Card Removal / I/O Failure
+
+If any SD write/fsync call fails during an active session:
+1. Log `REC_ERROR/ERR_SD_IO`.
+2. Attempt a single unmount/remount sequence.
+3. If remount fails, transition to UDP-only degraded mode for the remainder of boot and expose this in `/api/status`.
+4. No auto-resume is attempted on later card reinsertion; operator must reboot or start a new session after card service.
 
 #### File Naming (REQ-SD-05)
 
@@ -500,6 +515,12 @@ esp_eth_phy_t *phy = esp_eth_phy_new_ip101(&phy_cfg);
 **Wi-Fi (via ESP-Hosted):**
 The ESP32-C6 companion chip runs ESP-Hosted slave firmware. The ESP32-P4 communicates over SDIO and uses the standard `esp_wifi` API transparently. The ESP-Hosted component is added to the project's `idf_component.yml`.
 
+**SDIO host separation:**
+ESP32-P4 has two SDMMC hosts. This design assigns:
+- `SDMMC_HOST_0` to microSD storage
+- `SDMMC_HOST_1` to ESP-Hosted (C6 SDIO link)
+This prevents Wi-Fi traffic from contending with SD card traffic on the same host controller.
+
 Both interfaces support DHCP (default) and static IP, configured via the SD card config file. Each interface gets its own `esp_netif` instance.
 
 #### UDP Streaming (REQ-NET-02, REQ-NET-03)
@@ -515,8 +536,8 @@ Records are batched into UDP datagrams up to the configured payload size. The da
 
 Each interface tracks its state as one of: `STREAMING`, `BACKLOGGED`, `DISCONNECTED`.
 
-- **Disconnect detection (REQ-NET-05):** `sendto()` failure increments a failure counter. After 3 consecutive failures, the interface transitions to `DISCONNECTED`. On reconnection (next successful `sendto()`), the interface transitions to `BACKLOGGED` and begins streaming from its retained buffer position.
-- **Retransmit buffer (REQ-NET-06):** Each interface maintains a 500 KB circular buffer in PSRAM. When `DISCONNECTED` or `BACKLOGGED`, incoming records are written to this buffer. When it fills, the oldest data is overwritten and a `REC_NET_GAP` record is injected. The SD card log is never affected.
+- **Disconnect detection (REQ-NET-05):** Primary link state comes from ESP-IDF events (`ETH_EVENT_DISCONNECTED`, `IP_EVENT_ETH_LOST_IP`, `WIFI_EVENT_STA_DISCONNECTED`). `sendto()` errors are secondary indicators. A target receiver is also considered failed if optional application heartbeat ACKs are absent for `target_timeout_s` while link is up.
+- **Retention window (REQ-NET-06):** No per-interface retransmit ring is used. UDP consumers read from the same SPMC central log ring used by SD. If a UDP consumer falls behind beyond SPMC retention, stream data is dropped and an INFO-level status record is emitted (`REC_STATUS` with `udp_drop` details). The SD writer continues independently.
 - **SD independence (REQ-NET-07):** The SD logger has its own independent read pointer and runs on a separate task. Network state has no effect on SD writes.
 - **State reporting (REQ-NET-08):** Interface state changes are logged as `REC_NET_STATUS` records in both the SD log and the UDP stream.
 
@@ -526,7 +547,7 @@ Each interface tracks its state as one of: `STREAMING`, `BACKLOGGED`, `DISCONNEC
 
 #### Connection
 
-The `ntrip_client` task opens a TCP socket to the configured NTRIP caster and sends an HTTP-style request:
+The `ntrip_client` task opens a TCP socket to the configured NTRIP caster using the configured `network_interface` (`ethernet`, `wifi`, or `auto`) and sends an HTTP-style request:
 
 ```
 GET /MOUNTPT HTTP/1.1\r\n
@@ -541,11 +562,11 @@ On success (ICY 200 OK), the task enters a receive loop.
 
 #### RTCM Forwarding (REQ-RTCM-02)
 
-Incoming TCP data is buffered in a 4 KB ring buffer. As soon as data is available, it is forwarded to the designated UART port(s) via `uart_write_bytes()`. The UART TX FIFO (128 bytes) and driver's internal TX ring buffer absorb bursts.
+Incoming TCP data is buffered in a 4 KB ring buffer. Data is forwarded to designated UART port(s) with non-blocking chunked TX (`uart_tx_chars()`). The UART TX FIFO (128 bytes) plus software ring absorb bursts.
 
 Latency budget: TCP receive (~10–50 ms network) + memcpy to UART TX buffer (~10 µs) + UART transmission (at 115200 bps, 1 KB takes ~90 ms). Total well within 100 ms for typical RTCM message sizes (< 500 bytes).
 
-RTCM forwarding uses `uart_write_bytes()` which is non-blocking when buffer space is available, so it does not interfere with concurrent RX on any port (RX and TX are independent hardware paths in the UART peripheral).
+If UART TX capacity is exhausted, excess RTCM bytes are dropped (oldest first in the per-port RTCM TX ring), and `REC_ERROR/ERR_RTCM_TX_OVERRUN` is logged. RX and TX remain independent hardware paths, so RX capture continues unaffected.
 
 #### GGA Upload (REQ-RTCM-03)
 
@@ -578,6 +599,8 @@ The HTTP server runs on Core 1 using the ESP-IDF `httpd` component, listening on
 | POST | `/api/session/stop` | Stop the active session | Always available; no-op if not active |
 
 Request and response bodies are JSON, parsed/generated with `cJSON`.
+
+API authentication is intentionally not implemented in this revision; it is tracked as a future feature.
 
 #### Session Stop
 
@@ -612,14 +635,16 @@ At startup, `config_mgr`:
 1. Reads `/sd/config.json`.
 2. Parses with `cJSON`.
 3. Validates each field against allowed ranges.
-4. Logs errors for invalid fields to both the console and the status log file.
-5. For each invalid parameter, falls back to a documented default value and continues. The device does not halt unless the config file is unparsable (malformed JSON).
+4. If any field is missing/invalid, logs an error to console and status log and marks config invalid.
+5. If config is invalid, the device halts session start and exposes `config_invalid` state via HTTP API until corrected. No runtime fallback defaults are applied.
 
 ### 4.10 Watchdog & Recovery
 
 **Satisfies:** REQ-NF-02
 
-- The ESP-IDF Task Watchdog Timer (`esp_task_wdt`) monitors all tasks. If any task fails to reset the watchdog within 5 seconds, the system reboots.
+- The ESP-IDF Task Watchdog Timer uses differentiated supervision:
+  - Core 0 real-time tasks: 1-2 s timeout; failure triggers full system reboot.
+  - Core 1 I/O tasks: 5-10 s timeout; failure triggers task-level restart/session stop first (minimized blast radius), with full reboot only if restart fails repeatedly.
 - On boot, the firmware checks the reset reason via `esp_reset_reason()`. If it was a watchdog or panic reset, a `REC_ERROR` record with subtype `ERR_WATCHDOG_RESET` is written as the first record of the new session.
 - Each session starts with a new log file, so data from the previous session remains intact.
 
@@ -631,18 +656,20 @@ At startup, `config_mgr`:
 
 ### 5.1 Session Header
 
-Written once at the start of each log file. The format is self-describing and versioned.
+Written once at the start of each log file. Header size is fixed at 256 bytes so `session_complete` is always at a known offset.
 
 ```
 Offset  Size  Field
 0       4     Magic: 0x44415148 ("DAQH")
-4       2     Format version (uint16, currently 1)
+4       2     Format version (uint16, currently 2)
 6       1     Clock source at session start (0=free-running, 1=RTC, 2=GNSS)
 7       1     Reserved (0x00)
 8       8     Epoch reference (uint64, microseconds since Unix epoch, or 0 if free-running)
-16      4     Number of ports (uint32)
-20      N     Per-port descriptors (see below)
-...     1     session_complete flag (0x00 = incomplete, 0x01 = complete)
+16      2     Header length (uint16, fixed 256)
+18      2     Number of ports (uint16)
+20      N     Per-port descriptors (16 bytes each)
+252     1     session_complete flag (0x00 = incomplete, 0x01 = complete)
+253     3     Reserved / padding (0x00)
 ```
 
 Per-port descriptor (16 bytes each):
@@ -658,15 +685,16 @@ Offset  Size  Field
 
 ### 5.2 Record Format
 
-All records after the header follow a uniform TLV (type-length-value) structure:
+All records after the header follow a uniform TLV structure with monotonic per-record sequence numbers:
 
 ```
 Offset  Size  Field
 0       1     Record type (uint8)
 1       2     Payload length (uint16, little-endian, max 65535)
 3       8     Timestamp (uint64, microseconds, little-endian)
-11      N     Payload (type-specific)
-11+N    1     Checksum (XOR of bytes 0 through 10+N)
+11      4     Record sequence number (uint32, wraps)
+15      N     Payload (type-specific)
+15+N    2     CRC-16-CCITT (poly 0x1021, init 0xFFFF) over bytes 0 through 14+N
 ```
 
 ### 5.3 Record Types
@@ -706,7 +734,6 @@ File: `/sd/config.json`
       "parser": "ubx",
       "sync_direction": "input",
       "nominal_rate_hz": 10,
-      "clock_master": true,
       "gga_source": false,
       "rtcm_target": true
     },
@@ -719,18 +746,17 @@ File: `/sd/config.json`
         "stop_bits": 1
       },
       "parser": "nmea",
-      "sync_direction": "input",
+      "sync_direction": "output",
       "nominal_rate_hz": 5,
-      "clock_master": false,
+      "trigger": {
+        "enabled": true,
+        "rate_hz": 100,
+        "pulse_width_us": 10
+      },
       "gga_source": true,
       "rtcm_target": false
     }
   ],
-  "trigger": {
-    "port_index": 2,
-    "rate_hz": 100,
-    "pulse_width_us": 10
-  },
   "network": {
     "ethernet": {
       "enabled": true,
@@ -758,34 +784,28 @@ File: `/sd/config.json`
     "mountpoint": "MOUNTPT",
     "username": "user",
     "password": "pass",
+    "network_interface": "auto",
     "gga_interval_s": 10,
     "reconnect_interval_s": 5
   },
   "clock": {
+    "master_port_index": 0,
+    "master_sync_period_us": 1000000,
     "max_slew_rate_us_per_s": 50
   }
 }
 ```
 
-**Defaults** (applied when a field is missing or invalid):
+`clock.master_port_index` may be any valid port index (`0-3`) or `null` (no GNSS clock master; RTC/free-running clock sources only).
+
+**Required fields and defaults:**
 
 | Parameter | Default |
 |-----------|---------|
-| baud_rate | 115200 |
-| data_bits | 8 |
-| parity | none |
-| stop_bits | 1 |
-| parser | none (raw passthrough) |
-| sync_direction | input |
-| nominal_rate_hz | 1 |
-| trigger rate_hz | 0 (disabled) |
-| trigger pulse_width_us | 10 |
-| network mode | dhcp |
-| udp_payload_size | 1400 |
-| ntrip enabled | false |
-| gga_interval_s | 10 |
-| reconnect_interval_s | 5 |
-| max_slew_rate_us_per_s | 50 |
+| Runtime behavior for missing/invalid required fields | Config rejected; system blocks session start |
+| `trigger.enabled` omitted | `false` |
+| `ntrip.network_interface` omitted | `auto` |
+| `clock.master_sync_period_us` omitted | `1000000` |
 
 ---
 
@@ -809,9 +829,9 @@ File: `/sd/config.json`
 | REQ-CLK-03 | §4.2 | Software slew-rate offset accumulator; clock never jumps backward |
 | REQ-CLK-04 | §4.2 | Drift measured at each GNSS PPS edge, logged as `REC_CLOCK_STATUS` |
 | REQ-CLK-05 | §4.2 | Source transitions logged; session header records initial source |
-| REQ-SD-01 | §4.5 | Batch writes on Core 1; sensor acquisition on Core 0 |
+| REQ-SD-01 | §3.4, §4.5 | SPMC log ring defines retention window; SD overrun logged with continued best-effort writes |
 | REQ-SD-02 | §5 | Binary TLV format: data packets, clock records, error records |
-| REQ-SD-03 | §5 | Self-describing header with version; published record type table |
+| REQ-SD-03 | §5 | Fixed 256-byte header, deterministic completion flag offset, CRC-16 integrity |
 | REQ-SD-04 | §4.5 | Separate `.log` file with timestamped plain-text lines |
 | REQ-SD-05 | §4.5 | Wall-clock timestamp or NVS boot counter in filenames |
 | REQ-SD-06 | §4.5 | Pre-allocated file, periodic `fsync()`, self-delimiting records |
@@ -819,16 +839,16 @@ File: `/sd/config.json`
 | REQ-NET-02 | §4.6 | Dual independent UDP sockets, configurable destination and payload size |
 | REQ-NET-03 | §5 | Same binary TLV format for SD and UDP |
 | REQ-NET-04 | §4.6 | Independent `esp_netif` instances, no failover logic |
-| REQ-NET-05 | §4.6 | 3-failure disconnect detection, resume on next success |
-| REQ-NET-06 | §4.6 | 500 KB PSRAM ring buffer per interface; oldest-overwrite with gap logging |
+| REQ-NET-05 | §4.6 | Event-driven link detection + optional receiver heartbeat timeout |
+| REQ-NET-06 | §3.4, §4.6 | UDP consumers share SPMC retention window; lag past window logs INFO drop status |
 | REQ-NET-07 | §4.6 | SD logger has independent read pointer, unaffected by network state |
 | REQ-NET-08 | §4.6 | `REC_NET_STATUS` records logged to SD and UDP |
 | REQ-RTCM-01 | §4.7 | Custom TCP NTRIP client with configurable caster parameters |
-| REQ-RTCM-02 | §4.7 | Direct `uart_write_bytes()` forwarding; < 100 ms latency |
+| REQ-RTCM-02 | §4.7 | Non-blocking UART TX forwarding with explicit overflow-drop logging |
 | REQ-RTCM-03 | §4.7 | Periodic GGA read from designated parser, sent over TCP |
 | REQ-RTCM-04 | §4.7 | Reconnect loop with configurable interval and event logging |
 | REQ-CFG-01 | §4.9, §6 | `/sd/config.json` with all operational parameters |
-| REQ-CFG-02 | §4.9 | JSON validation at startup; per-field defaults; errors logged |
+| REQ-CFG-02 | §4.9 | Strict JSON validation at startup; halt on any invalid config |
 | REQ-CFG-03 | §4.8 | HTTP API on port 80; read-only during active session |
 | REQ-NF-01 | §3.2 | Core 0 dedicated to real-time tasks; Core 1 handles I/O |
 | REQ-NF-02 | §4.10 | Task WDT, reset-reason check, new session file on recovery |
@@ -842,3 +862,5 @@ File: `/sd/config.json`
 |---------|------------|------------------------------------------------------------------------------------|
 | 0.1     | 2026-03-10 | Initial design targeting ESP32-P4-Nano                                             |
 | 0.2     | 2026-03-11 | PR review: CPU clock, DS3231, connector, parser framework, slew rate, HTTP API     |
+| 0.3     | 2026-03-12 | Addressed outstanding PR comments: SPMC buffering, fixed header, CRC-16, sequence IDs, strict config validation, failure-mode handling, trigger/clock schema updates |
+| 0.4     | 2026-03-12 | New PR comments: simplified UDP buffering (shared SPMC window), SD lag best-effort behavior, sync-only packet association, configurable clock master sync period |
