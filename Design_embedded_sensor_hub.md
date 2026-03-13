@@ -56,6 +56,8 @@ The system is divided into five major blocks:
    Writes a binary session log and a human-readable status log to SD card.
 5. **Control and configuration**
    Loads configuration from SD, validates it, and starts/stops sessions locally.
+6. **Sensor preparation**
+   Applies per-sensor initialization, readiness checks, and arming steps before recording begins.
 
 ### 4.2 Design Principle
 
@@ -65,6 +67,8 @@ The capture path is strictly separated from optional interpretation:
 - framing runs only on copied data after capture
 - SD writes happen from dedicated log buffers
 - status and diagnostics never run in interrupt context
+- sensor initialization is completed before the session enters active recording
+- sensor-specific setup logic never bypasses the common session-start gate
 
 This directly supports the PRD requirement that the logger remain a logger first.
 
@@ -304,6 +308,7 @@ The firmware is organized into a small set of clear modules:
 
 - `config_manager`
 - `session_controller`
+- `sensor_manager`
 - `clock_service`
 - `uart_capture`
 - `sync_capture`
@@ -317,6 +322,7 @@ The firmware is organized into a small set of clear modules:
 Recommended execution model:
 
 - interrupts for UART RX service, SYNC edge capture, and trigger timing
+- medium-high-priority sensor setup task for bounded pre-record initialization and readiness verification
 - high-priority capture tasks for draining ISR queues
 - medium-priority storage task for binary/status file writes
 - low-priority optional framing and console/status formatting
@@ -336,6 +342,30 @@ Since ESP32-P4 has dual high-performance cores plus an LP core, the firmware sho
 - manages `idle`, `armed`, `recording`, `stopping`, and `faulted` states
 - creates unique session filenames
 - writes session start and stop records
+- accepts session start only after required sensors report `READY`
+
+### `sensor_manager`
+
+- owns sensor lifecycle state for each configured port
+- maps each port to a sensor type and sensor profile
+- executes probe, configure, verify-ready, arm, and teardown stages
+- publishes normalized readiness results to `session_controller`
+- allows ports to be marked as `raw_capture_only` when no initialization is required
+
+The `sensor_manager` provides one shared lifecycle contract for heterogeneous devices such as GNSS receivers and IMUs. Each sensor type can use different command sequences, timeouts, and verification rules, but each must report progress through the same normalized state model:
+
+- `UNCONFIGURED`
+- `PROBING`
+- `CONFIGURING`
+- `WAITING_READY`
+- `READY`
+- `FAILED`
+
+Session-start rule:
+
+- every enabled sensor marked `required_for_start = true` must reach `READY` before recording begins
+- any enabled port marked `raw_capture_only` may skip active initialization
+- any required sensor that reaches `FAILED` prevents session start and reports a local fault/status event
 
 ### `clock_service`
 
@@ -500,6 +530,9 @@ Minimum configuration fields:
 - global session settings
 - per-port UART settings
 - per-port capture mode
+- per-port sensor type
+- per-port sensor profile or setup recipe
+- per-port sensor start policy
 - per-port SYNC direction
 - trigger rate
 - trigger pulse width
@@ -522,6 +555,9 @@ Minimum configuration fields:
         "stop_bits": 1
       },
       "capture_mode": "raw",
+      "sensor_type": "gnss",
+      "sensor_profile": "ubx_rover_default",
+      "required_for_start": true,
       "sync_mode": "input",
       "sync_edges": "rising"
     },
@@ -534,6 +570,9 @@ Minimum configuration fields:
         "stop_bits": 1
       },
       "capture_mode": "raw",
+      "sensor_type": "imu",
+      "sensor_profile": "imu_200hz_default",
+      "required_for_start": true,
       "sync_mode": "output",
       "trigger_hz": 1000,
       "trigger_pulse_width_us": 50
@@ -548,6 +587,8 @@ Configuration validation shall reject:
 
 - unsupported baud rate or UART format
 - invalid port numbers
+- unknown sensor type
+- unknown sensor profile
 - `sync_mode = input` combined with trigger settings
 - `sync_mode = output` combined with input-edge settings
 - trigger rates above 2 kHz
@@ -571,9 +612,18 @@ On the Waveshare board, `UART0` is the natural development console path and shou
 
 Recommended behavior:
 
-- short press toggles session state when SD and config are valid
+- short press toggles session state when SD, config, and required sensor readiness are valid
 - long press forces stop if safe shutdown is needed
 - console commands remain optional and non-authoritative during active fault states
+
+Session startup sequence:
+
+1. validate configuration
+2. mount SD and prepare session files
+3. run sensor initialization for all enabled ports
+4. verify all required sensors are `READY`
+5. arm trigger outputs and SYNC roles
+6. enable active recording
 
 ---
 
@@ -619,6 +669,8 @@ Framing implementation rule:
 - framed metadata is derived from copied UART payload already preserved in raw form
 
 If framing falls behind or fails, raw logging continues unchanged.
+
+Sensor-specific initialization is distinct from framing. A sensor driver may use protocol-aware control messages before recording begins, but once the session starts, raw byte preservation remains authoritative and independent of parser success.
 
 ---
 
@@ -668,6 +720,8 @@ The following items should be finalized during schematic and firmware bring-up:
 - final button/LED behavior and service-console command set
 - exact binary log record layout and CRC choice
 - whether large binary staging buffers should live in internal RAM, PSRAM, or a split arrangement after benchmarking
+- the initial set of supported sensor drivers and their readiness criteria
+- the timeout and retry policy for required sensor initialization
 
 None of these open items change the core architecture.
 
