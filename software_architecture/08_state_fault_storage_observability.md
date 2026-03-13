@@ -9,7 +9,6 @@ stateDiagram-v2
     [*] --> BOOT
     BOOT --> CONFIG_INVALID
     BOOT --> READY
-    CONFIG_INVALID --> READY
     READY --> STARTING
     STARTING --> RECORDING
     RECORDING --> STOPPING
@@ -135,4 +134,3 @@ Metrics consumers:
 - `health_monitor`
 - console status commands
 - human-readable status log
-
