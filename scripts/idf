@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -eu
+
+IDF_EXPORT_SCRIPT="${IDF_EXPORT_SCRIPT:-/home/agent/esp/esp-idf/export.sh}"
+
+if [ ! -f "$IDF_EXPORT_SCRIPT" ]; then
+  echo "ESP-IDF export script not found: $IDF_EXPORT_SCRIPT" >&2
+  exit 1
+fi
+
+. "$IDF_EXPORT_SCRIPT" >/dev/null 2>&1
+exec idf.py "$@"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "ESP-IDF"
+  short_description: "ESP-IDF build, flash, and debug workflows"
+  default_prompt: "Use $esp-idf to inspect an ESP-IDF project and run the right build, flash, monitor, or debug commands for the board."
