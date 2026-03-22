@@ -23,16 +23,17 @@ The plan is optimized for one outcome first: a robust embedded sensor logger tha
 
 ## Command Contract
 
-Each stage should add to a stable automation surface. The exact implementation may vary, but by the end of the relevant stage we should be able to run these commands:
+Each stage should add to a stable automation surface. Prefer direct `idf.py`, `ctest`, and small helper scripts only where they add real value such as environment setup, artifact capture, or repeatable device orchestration. By the end of the relevant stage we should be able to run commands in this shape:
 
 - `./tools/bootstrap_env.sh`
-- `./tools/build_firmware.sh`
-- `./tools/run_host_tests.sh`
-- `./tools/device/run_integration.sh --case <case_name>`
-- `./tools/device/collect_artifacts.sh --case <case_name>`
+- `idf.py build`
+- `ctest --test-dir <host_build_dir>` or another documented host test command
+- `idf.py flash monitor`
+- `./tools/device/run_case.sh --case <case_name>` if a device runner is needed for timeouts, resets, or artifact capture
+- `./tools/device/collect_artifacts.sh --case <case_name>` if artifact capture is not already built into the device runner
 - `./tools/parse_binary_log.py <session.bin>`
 
-These commands are part of the plan. If the final repository chooses slightly different names, the same stable entry points should still exist.
+These commands define the intended workflow shape. Wrapper scripts are optional unless they provide capabilities that direct tool invocation does not.
 
 ---
 

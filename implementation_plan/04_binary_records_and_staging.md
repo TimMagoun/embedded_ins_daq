@@ -30,8 +30,8 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/run_host_tests.sh`
-- `./tools/device/run_integration.sh --case synthetic_record_pipeline`
+- `ctest --test-dir <host_build_dir>`
+- `./tools/device/run_case.sh --case synthetic_record_pipeline`
 - `./tools/parse_binary_log.py artifacts/latest/device/synthetic_record_pipeline/session.bin`
 
 ## Exit Criteria

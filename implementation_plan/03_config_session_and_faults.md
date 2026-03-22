@@ -42,11 +42,11 @@ Note for sequencing:
 
 ## What We Can Execute After This Step
 
-- `./tools/run_host_tests.sh`
-- `./tools/device/run_integration.sh --case config_valid_boot`
-- `./tools/device/run_integration.sh --case config_invalid_boot`
-- `./tools/device/run_integration.sh --case storage_prereq_blocked`
-- `./tools/device/run_integration.sh --case session_state_machine`
+- `ctest --test-dir <host_build_dir>`
+- `./tools/device/run_case.sh --case config_valid_boot`
+- `./tools/device/run_case.sh --case config_invalid_boot`
+- `./tools/device/run_case.sh --case storage_prereq_blocked`
+- `./tools/device/run_case.sh --case session_state_machine`
 
 ## Exit Criteria
 

@@ -27,8 +27,8 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/device/run_integration.sh --case ubx_nmea_framing`
-- `./tools/device/run_integration.sh --case framing_overload_isolation`
+- `./tools/device/run_case.sh --case ubx_nmea_framing`
+- `./tools/device/run_case.sh --case framing_overload_isolation`
 - `./tools/parse_binary_log.py artifacts/latest/device/ubx_nmea_framing/session.bin`
 
 ## Exit Criteria

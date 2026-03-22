@@ -29,7 +29,7 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/device/run_integration.sh --case two_port_reference_capture`
+- `./tools/device/run_case.sh --case two_port_reference_capture`
 - `./tools/device/collect_artifacts.sh --case two_port_reference_capture`
 - `./tools/parse_binary_log.py artifacts/latest/device/two_port_reference_capture/session.bin`
 

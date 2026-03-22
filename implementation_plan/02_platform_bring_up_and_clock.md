@@ -30,8 +30,10 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/device/run_integration.sh --case platform_smoke`
-- `./tools/device/run_integration.sh --case clock_monotonicity`
+- `idf.py build`
+- `idf.py flash monitor`
+- `./tools/device/run_case.sh --case platform_smoke`
+- `./tools/device/run_case.sh --case clock_monotonicity`
 
 ## Exit Criteria
 

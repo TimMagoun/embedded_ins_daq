@@ -31,8 +31,8 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/device/run_integration.sh --case four_port_stress`
-- `./tools/device/run_integration.sh --case four_port_overload_faults`
+- `./tools/device/run_case.sh --case four_port_stress`
+- `./tools/device/run_case.sh --case four_port_overload_faults`
 - `./tools/parse_binary_log.py artifacts/latest/device/four_port_stress/session.bin`
 
 ## Exit Criteria
