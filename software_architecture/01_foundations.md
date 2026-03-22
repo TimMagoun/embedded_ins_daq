@@ -45,6 +45,13 @@ At runtime the firmware coordinates:
 - one human-readable status log
 - local session control via button and console
 
+Platform assumptions carried in from the design document:
+
+- ESP32-P4 on the Waveshare `ESP32-P4-NANO` is the only active MCU in revision 1
+- the onboard `ESP32-C6`, Ethernet, and USB OTG features remain out of scope
+- the onboard TF slot is used in native `SDMMC` mode rather than SPI mode
+- `UART0` remains reserved for console, flashing, and recovery during bring-up unless a later verified pin map requires a change
+
 The SD card binary log is the system of record.
 
 ---
@@ -103,4 +110,3 @@ Interpretation:
 - services convert raw events into versioned log records
 - storage is downstream of all capture paths
 - optional framing consumes copied UART data and publishes metadata only
-

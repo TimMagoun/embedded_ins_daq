@@ -11,6 +11,7 @@
 - preallocate per-port buffers sized to satisfy the `500 ms` retention target at configured baud rates
 - add explicit `UART_OVERFLOW`, `UART_BUFFER_EXHAUSTED`, and `BINARY_PIPELINE_OVERFLOW` handling
 - add health counters and watermarks for queue depth, buffer usage, and staged-bytes backlog
+- ensure overload and retention-exhaustion paths can latch degraded health without bypassing the `session_controller` lifecycle model
 - keep the fast path allocation-free during active recording
 - add a synthetic traffic fixture for `PORT3` and `PORT4` so full-scale stress tests do not depend on four real sensors
 
@@ -25,6 +26,7 @@
 - run four active UART inputs using two real sensors plus two deterministic generators or loopback fixtures
 - verify logging continues while storage lags until retention is exhausted
 - deliberately overload the pipeline and verify explicit loss records are present in both counters and logs
+- verify overload can force degraded health while the session remains in `RECORDING` until authoritative persistence is no longer defensible
 - confirm the system does not silently discard required records
 
 ## What We Can Execute After This Step

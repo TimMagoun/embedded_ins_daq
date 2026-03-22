@@ -23,6 +23,24 @@ Rules:
 - `READY` requires valid config, mounted storage, and no blocking fault
 - `STARTING -> RECORDING` additionally requires `all_required_ready = true` from `sensor_manager`
 - `FAULTED` may be recoverable depending on cause
+- `READY` is the operator-visible idle state for revision 1
+- the design does not require a separate persistent `ARMED` session state; start gating is performed inside `STARTING`
+
+## Health Classification
+
+Session lifecycle and health are modeled separately.
+
+Health states:
+
+- `HEALTHY`
+- `DEGRADED`
+- `UNAVAILABLE`
+
+Rules:
+
+- `DEGRADED` may coexist with `READY` or `RECORDING` when the device is still operating but one or more guarantees have been compromised
+- `UNAVAILABLE` means authoritative recording or trusted session control is no longer defensible and usually coincides with `FAULTED`
+- degraded health must be latched visibly in counters, status output, and binary fault/status records whenever the binary path is still writable
 
 ---
 

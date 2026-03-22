@@ -353,10 +353,12 @@ Since ESP32-P4 has dual high-performance cores plus an LP core, the firmware sho
 
 ### `session_controller`
 
-- manages `idle`, `armed`, `recording`, `stopping`, and `faulted` states
+- manages `BOOT`, `CONFIG_INVALID`, `READY`, `STARTING`, `RECORDING`, `STOPPING`, and `FAULTED` states
 - creates unique session filenames
 - writes session start and stop records
 - accepts session start only after required sensors report `READY`
+
+For local UI purposes, `READY` is the operator-visible idle state. The design does not require a separate persisted `ARMED` state in revision 1; pre-record checks happen inside `STARTING` and either complete into `RECORDING` or return to `READY`/`FAULTED`.
 
 ### `sensor_manager`
 
@@ -693,6 +695,8 @@ Conditions that should enter `FAULTED`:
 - storage failure is persistent enough that the authoritative binary log can no longer be written reliably
 - internal assertions or unrecoverable software state corruption occur
 - startup readiness for a required sensor fails and session start policy can no longer be satisfied
+
+`DEGRADED` is a health classification rather than a separate session-lifecycle state. In revision 1, the session may remain in `READY` or `RECORDING` while the health indicator is latched degraded. `FAULTED` remains the session-lifecycle state used when compliant recording can no longer be claimed.
 
 Operational policy:
 

@@ -9,17 +9,19 @@
 
 - implement `config_manager` for loading and validating a structured startup configuration
 - define `RuntimeConfig`, `SessionInfo`, and `FaultEvent` contracts in code
-- implement `session_controller` with the architecture state machine
+- implement `session_controller` with the architecture state machine: `BOOT`, `CONFIG_INVALID`, `READY`, `STARTING`, `RECORDING`, `STOPPING`, `FAULTED`
 - implement `fault_manager` with normalized fault classes and severities
 - add a temporary `storage_readiness_provider` abstraction that reports whether session start is permitted before the real SD implementation exists
 - generate unique session IDs and session filename bases
 - prevent session start when configuration is invalid or when the `storage_readiness_provider` reports unavailable
 - emit binary-ready and human-readable event objects for session and fault transitions
+- define the control-plane contract that degraded health is tracked separately from the session lifecycle, even if the richer `health_monitor` implementation arrives later
 
 Note for sequencing:
 
 - in this step, `storage_readiness_provider` may be a deterministic stub used only to validate control-plane behavior
 - the real SD-backed implementation replaces this stub in Step 06
+- `READY` is the operator-visible idle state in revision 1; no separate persisted `ARMED` state is required
 
 ## Desktop Validation
 
@@ -27,6 +29,7 @@ Note for sequencing:
 - unit test session-state transitions, including idempotent stop and fault handling
 - unit test that `required_for_start` and SYNC mode conflicts are rejected in configuration validation
 - unit test fault deduplication and severity mapping rules
+- unit test that warning or error conditions can latch degraded health without inventing a second lifecycle state
 
 ## Device Integration Validation
 
@@ -35,6 +38,7 @@ Note for sequencing:
 - boot with the temporary unavailable `storage_readiness_provider` stub and verify the system blocks start without pretending storage is healthy
 - request session start and stop through a temporary console path and verify state transitions
 - inject a synthetic fault and verify it changes state only when severity rules require it
+- inject a recoverable synthetic fault and verify the system can surface degraded health while remaining in `READY` or `RECORDING` as appropriate
 
 ## What We Can Execute After This Step
 

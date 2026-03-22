@@ -43,6 +43,8 @@ These should start in internal RAM:
 Reason:
 
 - revision 1 should optimize for predictability over memory abundance
+- the design target is at least `500 ms` of UART retention per enabled port at its configured baud rate
+- the reference sizing from the design doc is `64 kB` per enabled port, which exceeds the `921600` baud minimum-retention requirement with margin
 
 ---
 
@@ -131,4 +133,3 @@ Ownership:
 
 - producers publish events
 - `status_log_pipeline` serializes them
-

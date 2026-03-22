@@ -11,6 +11,7 @@
 - add local button and console control through `local_control_service`
 - add human-readable summaries for queue depth, SD latency, per-port counts, and sensor readiness
 - add periodic checkpoints and status events that explain degraded operation before total failure
+- make `health_monitor` publish `HEALTHY`, `DEGRADED`, and `UNAVAILABLE` classifications separately from the `session_controller` lifecycle state
 - add automated long-run integration cases and artifact retention rules
 - extend the debug workflow so failed device tests automatically preserve console logs, config, firmware build ID, and copied session files
 - add a repeatable recovery workflow for SD faults, boot failures, and unclean shutdowns
@@ -19,6 +20,7 @@
 
 - unit test status-event formatting and rate limiting
 - unit test health-threshold evaluation and warning generation
+- unit test that degraded-health latching does not create an alternate session state machine
 - unit test console command parsing and start or stop intent translation
 - unit test host-side artifact summarization so soak failures are easy to inspect
 
@@ -26,7 +28,7 @@
 
 - run at least `100` repeated start or stop cycles through the console path and at least `25` through the physical control path with no state-machine deadlock
 - run a long-duration soak test of at least `2 hours` with the GNSS and IMU attached and require zero unexplained resets, zero silent-stop conditions, and zero lost-artifact cases
-- inject SD faults or forced stalls and verify the logger enters `DEGRADED` when persistence is impaired but still partially functional, and enters `FAULTED` when authoritative binary logging can no longer continue
+- inject SD faults or forced stalls and verify the logger latches `DEGRADED` health while persistence is impaired but still partially functional, and transitions to `FAULTED` only when authoritative binary logging can no longer continue
 - verify each failing run leaves enough artifacts for offline diagnosis without rerunning immediately
 
 ## What We Can Execute After This Step

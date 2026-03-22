@@ -41,6 +41,24 @@ Contract:
 
 - created once by `session_controller`
 - treated as read-only by all consumers
+- filename base must be unique across power cycles when persisted to SD
+
+---
+
+## `HealthSnapshot`
+
+Contains:
+
+- current health classification
+- sticky degraded flag
+- queue and buffer watermark summary
+- SD write-latency summary
+- per-port loss counters
+
+Contract:
+
+- health classification is derived from normalized faults and runtime watermarks
+- health state does not replace the session lifecycle state machine
 
 ---
 
@@ -144,4 +162,3 @@ Contract:
 
 - generated immediately when a fault is detected
 - both binary and human-readable representations derive from the same normalized event
-

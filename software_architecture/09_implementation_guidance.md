@@ -42,6 +42,7 @@ An implementation complies with this architecture when:
 - SD writes are downstream of explicit staging buffers
 - all fault classes are surfaced through normalized fault handling
 - session state changes are centralized in `session_controller`
+- degraded health is modeled separately from the session lifecycle
 - memory placement decisions for critical paths are explicit and documented
 
 ---
@@ -63,4 +64,3 @@ The design is intentionally conservative. It favors:
 - strict separation between capture-critical and optional functionality
 
 This should allow a firmware engineer to implement the system while preserving the PRD priorities of reliable capture, timing integrity, and explicit fault reporting.
-
