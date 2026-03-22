@@ -1,4 +1,5 @@
 # Implementation Step 01
+
 ## Development Environment And Debug Workflow
 
 **Goal:** make the project easy for humans and agents to build, flash, test, and debug without manual IDE steps.
@@ -70,3 +71,4 @@
 - another agent can clone the repo, run one bootstrap command, and get both host and device feedback
 - another agent can build and debug directly through documented `ESP-IDF` commands without guessing hidden IDE settings or machine-specific paths
 - every failed device run leaves behind enough logs to debug the failure without reproducing it interactively
+- There is a quickstart guide in the README that covers environment setup, building, and running the first test case
