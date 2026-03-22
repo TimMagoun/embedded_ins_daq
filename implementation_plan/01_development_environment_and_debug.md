@@ -32,11 +32,7 @@
 - add a non-GUI crash workflow that saves raw panic output, runs the `ESP-IDF` backtrace decoder against the built `elf`, and stores a readable backtrace
 - keep `UART0` as the default console and recovery path during bring-up
 - make `JTAG` or `OpenOCD` support an optional extension, not a dependency for the first autonomous debug loop
-- document the exact run surfaces:
-  - build: `idf.py -C firmware build`
-  - flash: `idf.py -C firmware flash`
-  - monitor: `idf.py -C firmware monitor`
-  - full automated device run: `./tools/device/run_integration.sh --case <case_name>`
+- document the exact run surfaces `idf.py -C firmware build`, `idf.py -C firmware flash`, `idf.py -C firmware monitor`, and `./tools/device/run_integration.sh --case <case_name>`
 - define the first-line debug flow as `serial boot log -> ready banner timeout -> saved panic log -> decoded backtrace -> optional JTAG follow-up`
 
 ## Desktop Validation

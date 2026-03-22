@@ -11,6 +11,7 @@
 - define the binary file header, record envelope, versioning scheme, and integrity fields
 - implement `binary_log_pipeline` with fixed-capacity RAM staging buffers
 - add a RAM-backed sink so record ordering and flush boundaries can be tested before SD integration
+- dump the RAM-backed sink to an artifact file using the same binary format later written to SD so host tools can parse it unchanged
 - add a small host-side binary log parser used by tests and later artifact inspection
 - make pipeline overflow produce a normalized fault rather than silent loss
 
@@ -24,7 +25,7 @@
 ## Device Integration Validation
 
 - run a synthetic session on the device that emits session, fault, and dummy UART records into the RAM pipeline
-- verify the pipeline can open, append, flush to the RAM sink, and close
+- verify the pipeline can open, append, flush to the RAM sink, close, and export a parseable `session.bin` artifact
 - verify overflow counters and fault events are emitted when the synthetic producer exceeds the configured staging capacity
 
 ## What We Can Execute After This Step

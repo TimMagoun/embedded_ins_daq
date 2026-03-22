@@ -24,7 +24,8 @@
 
 - generate trigger pulses on the configured IMU-facing port while raw logging continues on `PORT1` and `PORT2`
 - verify trigger records appear in the binary log with the expected count
-- measure trigger frequency and jitter under concurrent UART capture and SD logging
+- measure trigger frequency and jitter under concurrent UART capture and SD logging and require worst-case jitter no worse than `5 us`
+- run a `10,000`-pulse validation at representative rates including `1 Hz`, `100 Hz`, and `1 kHz`, with zero missing trigger records
 - verify the configured port cannot be armed as both trigger output and SYNC input
 
 ## What We Can Execute After This Step

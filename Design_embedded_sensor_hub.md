@@ -44,7 +44,7 @@ The system shall:
 
 ### 4.1 Functional Blocks
 
-The system is divided into five major blocks:
+The system is divided into six major blocks:
 
 1. **Capture front end**
    Receives UART data and SYNC edges from 4 sensor ports.
@@ -78,14 +78,15 @@ This directly supports the PRD requirement that the logger remain a logger first
 
 ## 5.1 Main Processing Board
 
-The reference implementation uses the `ESP32-P4-NANO` development board plus a simple external sensor breakout or carrier that provides:
+The reference implementation uses the `ESP32-P4-NANO` development board as the main processing and storage platform.
+
+The overall system still requires external sensor wiring and power distribution for:
 
 - 4 sensor ports
-- SD card slot
 - 5 V power input
 - 3.3 V regulated sensor rail
-- session control button
-- status LED
+- session control button if the onboard buttons are not reused
+- status LED if the onboard LED is not reused
 - USB connection for firmware loading and local console
 
 The ESP32-P4 Nano is responsible for:
@@ -97,7 +98,7 @@ The ESP32-P4 Nano is responsible for:
 - configuration parsing
 - status reporting
 
-On the actual Waveshare `ESP32-P4-NANO` board, several of these functions already exist as onboard resources:
+On the actual Waveshare `ESP32-P4-NANO` board, several required functions already exist as onboard resources:
 
 - TF card slot using `SDIO/SDMMC`
 - USB-C UART/programming port
@@ -127,7 +128,7 @@ Preferred implementation:
 
 - use 4 of the ESP32-P4's 5 hardware UART controllers for sensor ports
 - route each channel directly at 3.3 V logic level
-- enable interrupt-driven RX with DMA or hardware FIFO service where supported
+- use interrupt-driven RX with FIFO service in revision 1
 - reserve the remaining standard UART for local console, flashing, or service access during development
 
 Because the ESP32-P4 already provides 5 standard UART controllers, an external multi-UART bridge should not be the default architecture. It becomes a fallback only if the `ESP32-P4-NANO` header pin exposure or peripheral conflicts prevent routing 4 sensor UARTs plus the required SYNC and control lines cleanly.
@@ -154,10 +155,10 @@ Each `SYNC`-as-output line shall be driven by a push-pull 3.3 V GPIO path. Trigg
 
 ## 5.6 Power Design
 
-The carrier board shall generate a regulated 3.3 V rail for sensors and logic. This design defines:
+The system power design shall generate a regulated 3.3 V rail for sensors and any required interface circuitry. This design defines:
 
 - **Per-port current limit:** 250 mA
-- **Total sensor power budget:** 700 mA continuous across all ports
+- **Total sensor power budget:** 1000 mA continuous across all ports
 
 Implementation details:
 
@@ -165,7 +166,7 @@ Implementation details:
 - fault indication available to firmware if practical
 - bulk capacitance placed near the sensor power distribution region
 
-These limits satisfy the PRD requirement to define and document the available power budget. Final schematic review shall verify regulator thermals and derating.
+These limits satisfy the PRD requirement to define and document the available power budget. Final schematic review shall verify regulator thermals, derating, and any required aggregate-current protection behavior.
 
 ## 5.7 Storage Interface
 
@@ -233,7 +234,7 @@ To meet the 5 us jitter requirement, trigger generation shall have higher priori
 Per-port UART receive flow:
 
 1. UART hardware receives bytes without software polling.
-2. RX interrupt or DMA completion moves bytes into a per-port circular buffer.
+2. RX interrupt-driven FIFO service moves bytes into a per-port circular buffer.
 3. A capture worker packages buffered bytes into UART log records.
 4. Log records are appended to a shared binary-log staging queue.
 5. SD writer task flushes staged records to the session file.
@@ -251,11 +252,24 @@ Per-port trigger flow:
 3. Trigger record is queued.
 4. A later timer alarm deasserts the output.
 
+## 7.1.1 UART Timestamp Model
+
+Revision 1 constrains UART capture to an ISR/FIFO-driven timestamp model.
+
+Rules:
+
+- the UART ISR captures a timestamp when it first services a newly started RX chunk from the hardware FIFO
+- that chunk-start timestamp becomes the timestamp for the resulting UART data record
+- additional bytes appended to the same chunk inherit that chunk-start timestamp
+- a new chunk begins only at a documented chunk boundary such as an idle gap, buffer handoff, or explicit flush boundary
+
+This timestamp represents when firmware first serviced the chunk from the UART peripheral. It is not a claim of per-byte wire time.
+
 ## 7.2 Buffering Strategy
 
 The design uses three buffer layers:
 
-- **Hardware FIFO/DMA buffer:** absorbs immediate peripheral bursts
+- **Hardware FIFO:** absorbs immediate peripheral bursts
 - **Per-port circular RX buffer:** absorbs SD and scheduler latency
 - **Shared log staging buffers:** decouple record production from SD file writes
 
@@ -482,7 +496,7 @@ Recommended payload:
 
 The timestamp for a UART data record shall be defined consistently. Recommended rule:
 
-- timestamp each UART data record with the device-clock value captured when the first byte of that chunk was observed by firmware
+- timestamp each UART data record with the device-clock value captured when the UART ISR first services that chunk from the RX FIFO
 
 This is metadata for chunk timing, not a claim of per-byte wire time.
 
@@ -647,8 +661,45 @@ Policy:
 - configuration fault: do not start session
 - UART overflow: log event, increment loss counter, continue if possible
 - SD throughput lag: continue until RAM retention is exhausted
-- RAM retention exhausted: log explicit data-loss event, then continue best-effort or transition to degraded state
-- SD write failure: stop claiming healthy persistent logging and raise a visible fault
+- RAM retention exhausted: log explicit data-loss event if the binary log is still writable, mark the session degraded, and continue best-effort capture only while enough system state remains intact to do so
+- SD write failure: stop claiming healthy persistent logging immediately, then mark the session degraded or faulted according to recoverability
+
+### Degraded Versus Faulted Behavior
+
+`DEGRADED` means:
+
+- the device is still operating
+- at least part of the capture path or persistence path remains usable
+- one or more PRD guarantees are no longer fully being met
+- the firmware may continue best-effort recording to preserve whatever data it still can
+
+Conditions that should enter `DEGRADED`:
+
+- SD latency has consumed most retention headroom but writes are still succeeding
+- a UART overflow or pipeline overflow has occurred but the binary log path remains writable
+- the status log path has failed while the binary log path remains healthy
+- a recoverable storage sync or transient write issue has occurred and retry policy is still active
+
+`FAULTED` means:
+
+- the system can no longer make a defensible claim of compliant active recording
+- required authoritative persistence is unavailable, or internal state is no longer sufficiently trustworthy
+- the firmware should stop an active session or refuse to start one until the fault is cleared
+
+Conditions that should enter `FAULTED`:
+
+- configuration is invalid
+- SD mount or session-file open fails before recording starts
+- storage failure is persistent enough that the authoritative binary log can no longer be written reliably
+- internal assertions or unrecoverable software state corruption occur
+- startup readiness for a required sensor fails and session start policy can no longer be satisfied
+
+Operational policy:
+
+- `DEGRADED` shall latch a sticky health flag, increment counters, drive a distinct local warning indication, and emit a binary fault or status record whenever the binary log is still writable
+- `DEGRADED` may continue recording best-effort data, but status output and session metadata shall make clear that capture integrity or persistence guarantees have been compromised
+- `FAULTED` shall prevent entry into `RECORDING` or force transition out of `RECORDING`
+- after entering `FAULTED`, the firmware should close files and stop capture cleanly where possible, while still preferring preservation of already-buffered data over cosmetic shutdown behavior
 
 This matches the PRD requirement that data loss and storage faults be explicit.
 

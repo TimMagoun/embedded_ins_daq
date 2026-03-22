@@ -24,9 +24,9 @@
 
 ## Device Integration Validation
 
-- run repeated start or stop cycles through the console and physical control path
-- run long-duration soak tests with the GNSS and IMU attached
-- inject SD faults or forced stalls and verify the logger stops claiming healthy persistence while preserving visible diagnostics
+- run at least `100` repeated start or stop cycles through the console path and at least `25` through the physical control path with no state-machine deadlock
+- run a long-duration soak test of at least `2 hours` with the GNSS and IMU attached and require zero unexplained resets, zero silent-stop conditions, and zero lost-artifact cases
+- inject SD faults or forced stalls and verify the logger enters `DEGRADED` when persistence is impaired but still partially functional, and enters `FAULTED` when authoritative binary logging can no longer continue
 - verify each failing run leaves enough artifacts for offline diagnosis without rerunning immediately
 
 ## What We Can Execute After This Step
@@ -39,4 +39,5 @@
 ## Exit Criteria
 
 - the system is practical to operate and debug over long runs
+- degraded and faulted persistence behavior is visible and testable in automation
 - another agent can trigger tests, inspect artifacts, and understand failures with minimal manual intervention
