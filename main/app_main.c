@@ -28,6 +28,8 @@ void app_main(void)
         ESP_LOGW(TAG, "PSRAM is not initialized");
     }
 
+    ESP_LOGI(TAG, "READY: board_smoke");
+
     while (1) {
         ESP_LOGI(TAG, "Heartbeat");
         vTaskDelay(pdMS_TO_TICKS(1000));
