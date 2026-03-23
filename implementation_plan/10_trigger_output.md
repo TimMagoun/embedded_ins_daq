@@ -30,8 +30,8 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/device/run_case.sh --case trigger_output_basic`
-- `./tools/device/run_case.sh --case trigger_output_under_load`
+- `python3 -m tools.run_case --case trigger_output_basic`
+- `python3 -m tools.run_case --case trigger_output_under_load`
 - `./tools/parse_binary_log.py artifacts/latest/device/trigger_output_under_load/session.bin`
 
 ## Exit Criteria

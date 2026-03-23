@@ -29,8 +29,7 @@ Each stage should add to a stable automation surface. Prefer direct `idf.py`, `c
 - `idf.py build`
 - `ctest --test-dir <host_build_dir>` or another documented host test command
 - `idf.py flash monitor`
-- `./tools/device/run_case.sh --case <case_name>` if a device runner is needed for timeouts, resets, or artifact capture
-- `./tools/device/collect_artifacts.sh --case <case_name>` if artifact capture is not already built into the device runner
+- `python3 -m tools.run_case --case <case_name>` if a device-side runner is needed for timeouts, resets, flashing, or artifact capture
 - `./tools/parse_binary_log.py <session.bin>`
 
 These commands define the intended workflow shape. Wrapper scripts are optional unless they provide capabilities that direct tool invocation does not.

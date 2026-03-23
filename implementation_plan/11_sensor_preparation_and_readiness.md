@@ -31,8 +31,8 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/device/run_case.sh --case sensor_prepare_success`
-- `./tools/device/run_case.sh --case sensor_prepare_missing_required`
+- `python3 -m tools.run_case --case sensor_prepare_success`
+- `python3 -m tools.run_case --case sensor_prepare_missing_required`
 - `./tools/parse_binary_log.py artifacts/latest/device/sensor_prepare_success/session.bin`
 
 ## Exit Criteria

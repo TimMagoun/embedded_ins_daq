@@ -33,8 +33,7 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/device/run_case.sh --case port1_raw_capture`
-- `./tools/device/collect_artifacts.sh --case port1_raw_capture`
+- `python3 -m tools.run_case --case port1_raw_capture`
 
 ## Exit Criteria
 

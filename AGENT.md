@@ -16,6 +16,21 @@
 
 - **Plan-Only Gate:** Before writing code for a new feature, output a brief architectural plan (including data structures and FreeRTOS task prioritization) and wait for user approval.
 - **Strict Tooling:** Never use raw `gcc`, `make`, or direct `python` commands. Use `idf.py`, `cmake`, `ctest`, or narrowly scoped repository scripts when they add clear value such as environment validation, artifact capture, or repeatable device orchestration. Do not add wrapper scripts that only rename an existing command.
+- **Small Tools First:** Follow the Unix/Linux philosophy in this repository. Prefer small, atomic tools linked together by clear inputs and outputs over large "everything" tools. Keep direct build and flash steps in `idf.py`, keep serial monitor orchestration in `monitor.py`, and keep repeatable case execution and artifact packaging in `run_case.py`.
+- **Repo-Local Environment:** Keep machine-specific settings in the gitignored `esp.env` file at the repo root. Set at least `IDF_PATH` and `BOARD_PORT` there.
+- **Setup First:** Before running `./tools/bootstrap_env.sh`, `idf.py`, `python3 -m tools.monitor`, `decode_panic.sh`, or any other ESP-IDF or device-facing command, always run `source ./tools/setup.sh` in the current shell.
+- **Setup Contract:** `./tools/setup.sh` is the only repo entry point for environment loading. It sources `esp.env`, exports `IDF_PATH` and related variables into the current shell, and then sources `${IDF_PATH}/export.sh`.
+- **Bootstrap First:** Use `./tools/bootstrap_env.sh` only after `source ./tools/setup.sh`. Bootstrap now assumes the shell is already prepared and validates the active ESP-IDF environment, minimum version, `esp32p4` target support, and required desktop tools such as `cmake` and `ctest`.
+- **Probe Hardware Early:** At the start of any implementation or validation task, check whether a target board is attached on the configured `BOARD_PORT` or the expected default port such as `/dev/ttyACM0`. Do this before assuming hardware is unavailable.
+- **Default Firmware Workflow:** Prefer `idf.py set-target esp32p4`, `idf.py build`, `idf.py -p <port> flash`, and `idf.py -p <port> monitor` as the base workflow. Helper scripts are additive, not replacements for standard `idf.py`, and each helper should own one narrow responsibility.
+- **Host Tests:** Use `cmake -S host_tests -B build_host`, `cmake --build build_host`, and `ctest --test-dir build_host`. Host test artifacts land under `build_host/artifacts/<test_name>`.
+- **Device Monitor Capture:** Use `python3 -m tools.monitor --ready-banner "READY: board_smoke"` after `idf.py -p <port> flash` when you need a programmatic ready-banner wait and a serial log mirrored to both the terminal and `artifacts/latest/device/monitor.log`. Run `source ./tools/setup.sh` in the current shell first.
+- **Run Case Tool:** Use `python3 -m tools.run_case --case board_smoke` when you need deterministic artifact capture, a ready-banner timeout, and automatic copying of build outputs.
+- **Crash Decode:** Use `./tools/decode_panic.sh --elf build/embedded_ins_daq.elf --panic-log <monitor.log>` to decode saved panic logs offline against the exact built ELF.
+- **Attached Device Assumption:** Assume a board may already be attached on `/dev/ttyACM0` when an agent starts. Before changing code for a hardware issue, check whether the port exists, whether the board can answer to `idf.py -p /dev/ttyACM0 flash` followed by `monitor.py`, and whether a previous monitor log already left useful artifacts behind.
+- **Hardware-First Validation:** If a target device is present and the task touches firmware behavior, build the firmware and attempt a hardware smoke run before concluding the work. Do not stop at host tests alone when on-device validation is feasible.
+- **Port Handling:** Do not assume `/dev/ttyACM0` is free just because it exists. If flashing or monitor access fails, distinguish between a busy port, wrong board, permissions, boot mode, and firmware faults before changing code.
+- **Current Smoke Case Convention:** Use `board_smoke` as the canonical bring-up case name. A successful run reaches the `READY: board_smoke` banner during `python3 -m tools.run_case --case board_smoke --port /dev/ttyACM0` or `python3 -m tools.monitor --ready-banner "READY: board_smoke" --port /dev/ttyACM0` after a separate flash.
 
 ## 4. Debug Outputs & Error Handling
 
@@ -28,6 +43,7 @@
 
 - **Decouple Logic:** Write core algorithms and state machines independent of ESP-IDF hardware calls (HAL). Wrap hardware interactions (I2C, SPI, GPIO) in generic interfaces so the core logic can be unit-tested natively without hardware-in-the-loop.
 - **Unit Testing:** Use the Unity test framework built into ESP-IDF for firmware tests. For host-only modules, prefer standard desktop test tooling such as `ctest` and only add `gtest` if a real need emerges beyond what the repository already uses.
+- **Current Smoke Expectation:** The current smoke firmware logs startup on the configured target, free heap, flash size, PSRAM status, `READY: board_smoke`, and then periodic `Heartbeat` lines on `UART0`.
 
 ## 6. Interrupt Service Routine (ISR) Rules
 

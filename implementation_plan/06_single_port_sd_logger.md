@@ -30,8 +30,7 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/device/run_case.sh --case port1_sd_logger`
-- `./tools/device/collect_artifacts.sh --case port1_sd_logger`
+- `python3 -m tools.run_case --case port1_sd_logger`
 - `./tools/parse_binary_log.py artifacts/latest/device/port1_sd_logger/session.bin`
 
 ## Exit Criteria

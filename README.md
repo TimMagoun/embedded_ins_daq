@@ -1,1 +1,154 @@
 # embedded_ins_daq
+
+Revision 1 firmware is built as a native `ESP-IDF` project for the `Waveshare ESP32-P4-NANO` targeting `esp32p4`.
+
+This repository keeps the default firmware workflow on standard `ESP-IDF` commands:
+
+- `idf.py build`
+- `idf.py flash`
+- `idf.py monitor`
+- `cmake --build <host_build_dir>`
+- `ctest --test-dir <host_build_dir>`
+
+Small helper scripts exist only where they add repeatability for environment validation, artifact capture, and device-case orchestration.
+
+## Quickstart
+
+### 1. Create a repo-local environment file
+
+Copy [esp.env.example](/home/agent/workspace/embedded_ins_daq/esp.env.example) to `esp.env` and set:
+
+- `IDF_PATH` to your local ESP-IDF checkout
+- `BOARD_PORT` to the default serial device for your board
+
+Example:
+
+```bash
+cp esp.env.example esp.env
+```
+
+### 2. Load the environment
+
+Run:
+
+```bash
+source ./tools/setup.sh
+```
+
+The setup script:
+
+- loads variables from `esp.env` into the current shell
+- sources `${IDF_PATH}/export.sh`
+- makes `idf.py` and the ESP-IDF Python environment available to subsequent commands
+
+Run it again in each new shell before using ESP-IDF or device tools.
+
+### 3. Validate the environment
+
+```bash
+./tools/bootstrap_env.sh
+```
+
+The bootstrap script verifies:
+
+- the active `ESP-IDF` version is new enough for this project
+- `esp32p4` is supported by the active toolchain
+- desktop tooling like `cmake` and `ctest` is present
+
+### 4. Select the target
+
+In a clean workspace, set the target once:
+
+```bash
+idf.py set-target esp32p4
+```
+
+The project defaults in [sdkconfig.defaults](/home/agent/workspace/embedded_ins_daq/sdkconfig.defaults) keep the ESP32-P4 v1.3 compatibility settings required by this board.
+
+### 5. Build the firmware
+
+```bash
+idf.py build
+```
+
+The smoke firmware emits a clear ready banner on `UART0`, which remains the default console and panic-output path during bring-up.
+
+### 6. Run the host smoke test
+
+Configure the small desktop test target once:
+
+```bash
+cmake -S host_tests -B build_host
+cmake --build build_host
+ctest --test-dir build_host
+```
+
+Host test artifacts are written under `build_host/artifacts/<test_name>`.
+
+### 7. Flash and monitor directly
+
+Use standard `ESP-IDF` commands whenever you want the manual workflow:
+
+```bash
+idf.py -p /dev/ttyACM0 flash monitor
+```
+
+The first-line debug flow is:
+
+```text
+serial boot log -> ready banner timeout -> saved panic log -> decoded backtrace -> GDBStub session when interactive inspection is needed
+```
+
+### 8. Capture serial output to both the terminal and a log
+
+Use the repo tool when you want a reusable, non-interactive log file while still seeing the live monitor stream:
+
+```bash
+idf.py -p /dev/ttyACM0 flash
+python3 -m tools.monitor --ready-banner "READY: board_smoke"
+```
+
+By default this uses `BOARD_PORT` from `esp.env` and writes the latest monitor log to `artifacts/latest/device/monitor.log`.
+It assumes `source ./tools/setup.sh` has already been run in the current shell.
+The tool passes `--disable-auto-color` to `idf.py monitor` so the saved log stays easy to parse while the same stream remains visible in the terminal.
+
+### 9. Run the board smoke case with artifact capture
+
+When you want a repeatable case folder with logs and copied build outputs, use:
+
+```bash
+python3 -m tools.run_case --case board_smoke
+```
+
+Artifacts land in:
+
+- `artifacts/runs/device/<case_name>/<timestamp>`
+- `artifacts/latest/device/<case_name>`
+
+Each device case captures:
+
+- the monitor log
+- the active `sdkconfig`
+- the built `elf`
+- the built `bin` images when present
+- a decoded panic report when a backtrace is found
+
+## Crash Workflow
+
+If a panic log was already captured, decode it offline with:
+
+```bash
+./tools/decode_panic.sh \
+  --elf build/embedded_ins_daq.elf \
+  --panic-log artifacts/latest/device/monitor.log
+```
+
+This keeps crash decoding non-GUI and tied to the exact built `elf`.
+
+## Notes
+
+- Run `source ./tools/setup.sh` in each new shell before ESP-IDF or device commands.
+- `./tools/bootstrap_env.sh` can be rerun any time after setup to revalidate the active toolchain.
+- `UART0` is reserved for console, boot logs, flashing recovery, and panic output during early bring-up.
+- `GDBStub` is enabled in the firmware configuration so interactive serial debugging remains available without requiring JTAG for this stage.
+- `PlatformIO`, Arduino, JTAG, and OpenOCD are intentionally out of scope for step 1.

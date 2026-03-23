@@ -30,7 +30,7 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/device/run_case.sh --case sync_input_capture`
+- `python3 -m tools.run_case --case sync_input_capture`
 - `./tools/parse_binary_log.py artifacts/latest/device/sync_input_capture/session.bin`
 
 ## Exit Criteria

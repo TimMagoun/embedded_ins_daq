@@ -25,7 +25,7 @@
 
 - keep the repository as a standard `ESP-IDF` project rooted at the repo top level and add `tools/` only for narrowly scoped helpers that improve portability or repeatability
 - keep `sdkconfig.defaults` at the repo root and document the exact `ESP-IDF` target selection for `esp32p4`
-- add `./tools/bootstrap_env.sh` to verify the required `ESP-IDF` version, validate toolchain prerequisites, and confirm that either `IDF_PATH` is set or a documented repo-local install path such as `.local/esp-idf` exists
+- add `./tools/bootstrap_env.sh` to verify the required `ESP-IDF` version, validate toolchain prerequisites, confirm that `IDF_PATH` is set through `esp.env` or the shell environment, and write a cached runtime file for repo tooling
 - document a portable environment contract that works on another developer or agent machine without hardcoded absolute paths
 - use `idf.py build` as the default firmware build entry point rather than wrapping it with another script
 - use Unity as the default firmware test framework and keep host-test support limited to hardware-independent modules that justify a desktop test target
@@ -63,7 +63,7 @@
 - `idf.py build`
 - `ctest --test-dir <host_build_dir>`
 - `idf.py flash monitor`
-- `./tools/device/run_case.sh --case board_smoke`
+- `python3 -m tools.run_case --case board_smoke`
 
 ## Exit Criteria
 

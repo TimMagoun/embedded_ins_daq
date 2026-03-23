@@ -43,10 +43,10 @@ Note for sequencing:
 ## What We Can Execute After This Step
 
 - `ctest --test-dir <host_build_dir>`
-- `./tools/device/run_case.sh --case config_valid_boot`
-- `./tools/device/run_case.sh --case config_invalid_boot`
-- `./tools/device/run_case.sh --case storage_prereq_blocked`
-- `./tools/device/run_case.sh --case session_state_machine`
+- `python3 -m tools.run_case --case config_valid_boot`
+- `python3 -m tools.run_case --case config_invalid_boot`
+- `python3 -m tools.run_case --case storage_prereq_blocked`
+- `python3 -m tools.run_case --case session_state_machine`
 
 ## Exit Criteria
 

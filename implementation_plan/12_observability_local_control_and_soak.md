@@ -33,10 +33,9 @@
 
 ## What We Can Execute After This Step
 
-- `./tools/device/run_case.sh --case local_control_smoke`
-- `./tools/device/run_case.sh --case long_soak_reference`
-- `./tools/device/run_case.sh --case sd_fault_recovery`
-- `./tools/device/collect_artifacts.sh --case long_soak_reference`
+- `python3 -m tools.run_case --case local_control_smoke`
+- `python3 -m tools.run_case --case long_soak_reference`
+- `python3 -m tools.run_case --case sd_fault_recovery`
 
 ## Exit Criteria
 

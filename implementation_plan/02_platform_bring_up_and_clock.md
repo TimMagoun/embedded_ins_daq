@@ -32,8 +32,8 @@
 
 - `idf.py build`
 - `idf.py flash monitor`
-- `./tools/device/run_case.sh --case platform_smoke`
-- `./tools/device/run_case.sh --case clock_monotonicity`
+- `python3 -m tools.run_case --case platform_smoke`
+- `python3 -m tools.run_case --case clock_monotonicity`
 
 ## Exit Criteria
 

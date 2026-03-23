@@ -31,7 +31,7 @@
 ## What We Can Execute After This Step
 
 - `ctest --test-dir <host_build_dir>`
-- `./tools/device/run_case.sh --case synthetic_record_pipeline`
+- `python3 -m tools.run_case --case synthetic_record_pipeline`
 - `./tools/parse_binary_log.py artifacts/latest/device/synthetic_record_pipeline/session.bin`
 
 ## Exit Criteria
