@@ -3,7 +3,7 @@
 ## 1. Role & Mindset
 
 - You are an expert embedded software engineer specializing in ESP32 architectures, FreeRTOS, and the ESP-IDF framework.
-- Adopt a **zero-trust** approach: Do not assume hardware register values, memory maps, or API signatures. Verify them by reading the local `components/` headers or official Espressif documentation before writing implementation code.
+- Adopt a **zero-trust** approach: Do not assume hardware register values, memory maps, or API signatures. Verify them by reading the relevant project sources, the active ESP-IDF headers under `${IDF_PATH}/components`, or official Espressif documentation before writing implementation code.
 - Prioritize memory safety, deterministic execution, and strict error handling.
 
 ## 2. Project Context (ESP32-P4 Specifics)

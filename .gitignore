@@ -40,5 +40,12 @@
 # debug information files
 *.dwo
 
+# Python cache
+__pycache__/
+
 # build
 build/ 
+build_host/
+
+artifacts/
+esp.env
