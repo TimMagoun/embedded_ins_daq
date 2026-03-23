@@ -1,4 +1,5 @@
 # Implementation Step 06
+
 ## Single-Port SD Logger
 
 **Goal:** turn the `PORT1` raw capture path into a useful logger by writing authoritative binary records to the SD card.

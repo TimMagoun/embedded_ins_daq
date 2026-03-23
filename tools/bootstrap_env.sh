@@ -24,7 +24,7 @@ version_ge() {
 
 require_tool() {
     local tool_name=$1
-    command -v "${tool_name}" >/dev/null 2>&1 || fail "Required tool '${tool_name}' is missing from PATH."
+    command -v "${tool_name}" > /dev/null 2>&1 || fail "Required tool '${tool_name}' is missing from PATH."
 }
 
 [[ -n "${IDF_PATH:-}" ]] || fail "IDF_PATH is not set. Run 'source ./tools/setup.sh' first."
@@ -32,6 +32,7 @@ require_tool() {
 require_tool idf.py
 require_tool cmake
 require_tool ctest
+require_tool uv
 
 IDF_VERSION_RAW=$(idf.py --version)
 IDF_VERSION=$(printf '%s\n' "${IDF_VERSION_RAW}" | sed -E 's/^ESP-IDF v//')
@@ -45,10 +46,14 @@ mkdir -p "${REPO_ROOT}/artifacts/latest/device" "${REPO_ROOT}/artifacts/runs/dev
 log "ESP-IDF version: ${IDF_VERSION}"
 log "ESP-IDF path: ${IDF_PATH}"
 log "Supported target '${TARGET}' detected."
+log "uv: $(uv --version)"
 log "Environment is assumed to be prepared by source ./tools/setup.sh."
 log "Next steps:"
 log "  1. idf.py set-target ${TARGET}   # once in a clean workspace"
 log "  2. idf.py build"
-log "  3. cmake -S host_tests -B build_host && cmake --build build_host && ctest --test-dir build_host"
-log "  4. idf.py -p <port> flash"
-log "  5. python3 -m tools.monitor --ready-banner 'READY: board_smoke'"
+log "  3. uv sync --group dev"
+log "  4. uv run --group dev pre-commit install"
+log "  5. uv run --group dev pre-commit run --all-files"
+log "  6. cmake -S host_tests -B build_host && cmake --build build_host && ctest --test-dir build_host"
+log "  7. idf.py -p <port> flash"
+log "  8. python3 -m tools.monitor --ready-banner 'READY: board_smoke'"

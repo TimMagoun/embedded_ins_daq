@@ -1,4 +1,5 @@
 # Implementation Step 11
+
 ## Sensor Preparation And Readiness
 
 **Goal:** add pre-record sensor setup and readiness gating without moving sensor-specific logic into the capture-critical path.

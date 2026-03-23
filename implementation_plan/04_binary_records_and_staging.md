@@ -1,4 +1,5 @@
 # Implementation Step 04
+
 ## Binary Records And RAM Staging
 
 **Goal:** define the authoritative binary record format and prove that records can be built and staged without SD writes yet.

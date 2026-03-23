@@ -1,7 +1,8 @@
 # Capture And Logging Modules
+
 ## Clock, Capture, Records, Pipelines, and Storage
 
----
+______________________________________________________________________
 
 ## Module Map In This Document
 
@@ -18,7 +19,7 @@
 - `sd_storage_service`
 - `health_monitor`
 
----
+______________________________________________________________________
 
 ## `clock_service`
 
@@ -36,7 +37,7 @@ Contract:
 - timestamps are safe to read from ISR context
 - no consumer may redefine the clock during a session
 
----
+______________________________________________________________________
 
 ## `uart_hal_adapter`
 
@@ -55,7 +56,7 @@ Contract:
 - never allocates dynamically after initialization
 - does not write log records directly
 
----
+______________________________________________________________________
 
 ## `uart_capture_service`
 
@@ -80,7 +81,7 @@ Memory:
 - circular buffer descriptors in internal RAM
 - raw byte storage in internal RAM for revision 1
 
----
+______________________________________________________________________
 
 ## `sync_hal_adapter`
 
@@ -98,7 +99,7 @@ Contract:
 - all SYNC input capture is interrupt-driven
 - a pin cannot be input capture and trigger output at the same time
 
----
+______________________________________________________________________
 
 ## `sync_capture_service`
 
@@ -120,7 +121,7 @@ Memory:
 - ISR queue in internal RAM
 - normalization workspace in internal RAM
 
----
+______________________________________________________________________
 
 ## `trigger_engine`
 
@@ -139,7 +140,7 @@ Contract:
 - trigger-enabled ports cannot be used as SYNC input
 - every asserted pulse produces exactly one trigger record candidate
 
----
+______________________________________________________________________
 
 ## `record_builder`
 
@@ -159,7 +160,7 @@ Contract:
 - binary record version and schema are centralized here
 - record construction is deterministic from normalized inputs
 
----
+______________________________________________________________________
 
 ## `binary_log_pipeline`
 
@@ -186,7 +187,7 @@ Memory:
 - staging descriptors in internal RAM
 - bulk staging buffers in internal RAM for revision 1, with PSRAM as an optimization candidate later
 
----
+______________________________________________________________________
 
 ## `status_log_pipeline`
 
@@ -203,7 +204,7 @@ Contract:
 - status logging is secondary and must never block raw capture
 - if it falls behind, the condition is reported rather than hidden
 
----
+______________________________________________________________________
 
 ## `framing_service`
 
@@ -221,7 +222,7 @@ Contract:
 - framing failure cannot suppress raw UART logging
 - framing may degrade independently if overloaded
 
----
+______________________________________________________________________
 
 ## `sd_storage_service`
 
@@ -244,7 +245,7 @@ Contract:
 - binary records are written only as complete staged blocks
 - storage faults are surfaced immediately and visibly
 
----
+______________________________________________________________________
 
 ## `health_monitor`
 
@@ -259,4 +260,3 @@ Contract:
 
 - does not directly change capture behavior
 - policy actions are routed through `session_controller` or `fault_manager`
-

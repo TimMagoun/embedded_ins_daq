@@ -1,10 +1,10 @@
 # ESP32-P4-NANO Pin Planning Checklist
 
-**Purpose:** Working checklist for assigning pins and verifying how the `ESP32-P4-NANO` interfaces with onboard and external peripherals.  
-**Use This For:** Carrier-board planning, firmware bring-up, connector mapping, and avoiding board-level pin conflicts.  
+**Purpose:** Working checklist for assigning pins and verifying how the `ESP32-P4-NANO` interfaces with onboard and external peripherals.
+**Use This For:** Carrier-board planning, firmware bring-up, connector mapping, and avoiding board-level pin conflicts.
 **Companion Reference:** [ESP32_P4_NANO_capabilities.md](/Users/timmagoun/Projects/embedded_ins_daq/ESP32_P4_NANO_capabilities.md)
 
----
+______________________________________________________________________
 
 ## 1. How To Use This Checklist
 
@@ -19,7 +19,7 @@ Rule of thumb:
 
 - do not treat a SoC capability as available until the signal is confirmed on the actual board headers or intentionally routed through an onboard device
 
----
+______________________________________________________________________
 
 ## 2. Board-Level Verification
 
@@ -39,7 +39,7 @@ Record here during bring-up:
 - pinout source:
 - ESP-IDF version:
 
----
+______________________________________________________________________
 
 ## 3. Core External Interface Budget
 
@@ -61,7 +61,7 @@ Minimum baseline external pin count:
 
 This means the project is pin-feasible on the dev board, but only if the final map avoids conflicts with the onboard TF slot and any already-claimed board functions.
 
----
+______________________________________________________________________
 
 ## 4. Peripheral Planning Checklist
 
@@ -249,7 +249,7 @@ Record details:
 
 - C6 pin conflict notes:
 
----
+______________________________________________________________________
 
 ## 5. Timing Peripheral Checklist
 
@@ -293,7 +293,7 @@ Record choice:
 
 - SYNC capture method:
 
----
+______________________________________________________________________
 
 ## 6. Memory Placement Checklist
 
@@ -312,7 +312,7 @@ Record decisions:
 - binary staging buffer memory:
 - status buffer memory:
 
----
+______________________________________________________________________
 
 ## 7. External Carrier / Breakout Checklist
 
@@ -332,7 +332,7 @@ Record details:
 - protection approach:
 - service header approach:
 
----
+______________________________________________________________________
 
 ## 8. Final Sign-Off Checklist
 
@@ -348,7 +348,7 @@ Before implementation is locked, confirm all of the following:
 - external carrier power limits are documented
 - firmware pin map, schematic pin map, and connector pinout all match
 
----
+______________________________________________________________________
 
 ## 9. Bring-Up Table
 
@@ -356,21 +356,20 @@ Use this table as a working summary during implementation.
 
 | Function | SoC Peripheral | Board Pin / Header Pin | Direction | Onboard Conflict? | Verified? | Notes |
 |---|---|---|---|---|---|---|
-| Console UART TX |  |  | Out |  |  |  |
-| Console UART RX |  |  | In |  |  |  |
-| Sensor 1 UART RX |  |  | In |  |  |  |
-| Sensor 1 UART TX |  |  | Out |  |  |  |
-| Sensor 1 SYNC |  |  | In/Out |  |  |  |
-| Sensor 2 UART RX |  |  | In |  |  |  |
-| Sensor 2 UART TX |  |  | Out |  |  |  |
-| Sensor 2 SYNC |  |  | In/Out |  |  |  |
-| Sensor 3 UART RX |  |  | In |  |  |  |
-| Sensor 3 UART TX |  |  | Out |  |  |  |
-| Sensor 3 SYNC |  |  | In/Out |  |  |  |
-| Sensor 4 UART RX |  |  | In |  |  |  |
-| Sensor 4 UART TX |  |  | Out |  |  |  |
-| Sensor 4 SYNC |  |  | In/Out |  |  |  |
-| Session Button |  |  | In |  |  |  |
-| Status LED |  |  | Out |  |  |  |
-| Spare Debug GPIO |  |  | In/Out |  |  |  |
-
+| Console UART TX | | | Out | | | |
+| Console UART RX | | | In | | | |
+| Sensor 1 UART RX | | | In | | | |
+| Sensor 1 UART TX | | | Out | | | |
+| Sensor 1 SYNC | | | In/Out | | | |
+| Sensor 2 UART RX | | | In | | | |
+| Sensor 2 UART TX | | | Out | | | |
+| Sensor 2 SYNC | | | In/Out | | | |
+| Sensor 3 UART RX | | | In | | | |
+| Sensor 3 UART TX | | | Out | | | |
+| Sensor 3 SYNC | | | In/Out | | | |
+| Sensor 4 UART RX | | | In | | | |
+| Sensor 4 UART TX | | | Out | | | |
+| Sensor 4 SYNC | | | In/Out | | | |
+| Session Button | | | In | | | |
+| Status LED | | | Out | | | |
+| Spare Debug GPIO | | | In/Out | | | |

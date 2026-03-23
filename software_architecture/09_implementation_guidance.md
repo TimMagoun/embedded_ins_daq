@@ -1,34 +1,35 @@
 # Implementation Guidance
+
 ## Bring-Up Order, Compliance, and Summary
 
----
+______________________________________________________________________
 
 ## Recommended Implementation Order
 
 1. `clock_service`
-2. `config_manager`
-3. `session_controller`
-4. `sensor_manager`
-5. `sensor_driver_raw_uart`
-6. `uart_hal_adapter`
-7. `uart_capture_service`
-8. `record_builder`
-9. `binary_log_pipeline`
-10. `sd_storage_service`
-11. `fault_manager`
-12. `sync_hal_adapter`
-13. `sync_capture_service`
-14. `trigger_engine`
-15. `status_log_pipeline`
-16. `local_control_service`
-17. `health_monitor`
-18. `framing_service`
+1. `config_manager`
+1. `session_controller`
+1. `sensor_manager`
+1. `sensor_driver_raw_uart`
+1. `uart_hal_adapter`
+1. `uart_capture_service`
+1. `record_builder`
+1. `binary_log_pipeline`
+1. `sd_storage_service`
+1. `fault_manager`
+1. `sync_hal_adapter`
+1. `sync_capture_service`
+1. `trigger_engine`
+1. `status_log_pipeline`
+1. `local_control_service`
+1. `health_monitor`
+1. `framing_service`
 
 Reason:
 
 - this order brings up authoritative capture and persistence before optional interpretation
 
----
+______________________________________________________________________
 
 ## Definition Of Done For Architecture Compliance
 
@@ -45,7 +46,7 @@ An implementation complies with this architecture when:
 - degraded health is modeled separately from the session lifecycle
 - memory placement decisions for critical paths are explicit and documented
 
----
+______________________________________________________________________
 
 ## Architecture Summary
 

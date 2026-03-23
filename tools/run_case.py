@@ -12,7 +12,6 @@ import time
 
 from tools.monitor import DeviceToolError, monitor
 
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_BUILD_DIR = REPO_ROOT / "build"
 DEFAULT_RUNS_ROOT = REPO_ROOT / "artifacts" / "runs" / "device"
@@ -26,13 +25,17 @@ class DeviceRunnerError(RuntimeError):
 
 def require_idf_py() -> None:
     if shutil.which("idf.py") is None:
-        raise DeviceRunnerError("idf.py is not available in PATH. Run 'source ./tools/setup.sh' first.")
+        raise DeviceRunnerError(
+            "idf.py is not available in PATH. Run 'source ./tools/setup.sh' first."
+        )
 
 
 def resolve_port(arg_port: str | None) -> str:
     port = arg_port or os.environ.get("BOARD_PORT")
     if not port:
-        raise DeviceRunnerError("No serial port configured. Run 'source ./tools/setup.sh' or pass --port.")
+        raise DeviceRunnerError(
+            "No serial port configured. Run 'source ./tools/setup.sh' or pass --port."
+        )
     return port
 
 
@@ -85,7 +88,9 @@ def update_latest_link(link_path: pathlib.Path, target: pathlib.Path) -> None:
     link_path.symlink_to(target)
 
 
-def decode_panic_log(elf_path: pathlib.Path, monitor_log: pathlib.Path, output_path: pathlib.Path) -> None:
+def decode_panic_log(
+    elf_path: pathlib.Path, monitor_log: pathlib.Path, output_path: pathlib.Path
+) -> None:
     if not elf_path.is_file() or not monitor_log.is_file():
         return
 
@@ -111,7 +116,9 @@ def build_flash_command(build_dir: pathlib.Path, port: str) -> list[str]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Flash the current build, run monitor.py, and capture case artifacts.")
+    parser = argparse.ArgumentParser(
+        description="Flash the current build, run monitor.py, and capture case artifacts."
+    )
     parser.add_argument("--case", required=True)
     parser.add_argument("--port")
     parser.add_argument("--build-dir", default=str(DEFAULT_BUILD_DIR))
@@ -140,7 +147,9 @@ def run_case(args: argparse.Namespace) -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
     DEFAULT_LATEST_ROOT.mkdir(parents=True, exist_ok=True)
 
-    flash = subprocess.run(build_flash_command(build_dir, port), cwd=REPO_ROOT, check=False)
+    flash = subprocess.run(
+        build_flash_command(build_dir, port), cwd=REPO_ROOT, check=False
+    )
     if flash.returncode != 0:
         write_metadata(
             run_dir / "metadata.txt",
@@ -156,7 +165,9 @@ def run_case(args: argparse.Namespace) -> int:
             },
         )
         copy_run_artifacts(run_dir, build_dir)
-        update_latest_link(latest_link, pathlib.Path("../../runs/device") / case_name / timestamp)
+        update_latest_link(
+            latest_link, pathlib.Path("../../runs/device") / case_name / timestamp
+        )
         return flash.returncode
 
     monitor_exit_code = monitor(
@@ -183,16 +194,27 @@ def run_case(args: argparse.Namespace) -> int:
             "monitor_exit_code": str(monitor_exit_code),
         },
     )
-    update_latest_link(latest_link, pathlib.Path("../../runs/device") / case_name / timestamp)
+    update_latest_link(
+        latest_link, pathlib.Path("../../runs/device") / case_name / timestamp
+    )
 
     if monitor_exit_code == 0:
         print(f"Case {case_name} reached ready banner. Artifacts: {run_dir}")
     elif monitor_exit_code == 3:
-        print(f"Case {case_name} entered GDBStub before the ready banner. Artifacts: {run_dir}", file=sys.stderr)
+        print(
+            f"Case {case_name} entered GDBStub before the ready banner. Artifacts: {run_dir}",
+            file=sys.stderr,
+        )
     elif monitor_exit_code == 2:
-        print(f"Case {case_name} captured panic output before the ready banner. Artifacts: {run_dir}", file=sys.stderr)
+        print(
+            f"Case {case_name} captured panic output before the ready banner. Artifacts: {run_dir}",
+            file=sys.stderr,
+        )
     elif monitor_exit_code == 1:
-        print(f'Case {case_name} timed out waiting for ready banner "{ready_banner}". Artifacts: {run_dir}', file=sys.stderr)
+        print(
+            f'Case {case_name} timed out waiting for ready banner "{ready_banner}". Artifacts: {run_dir}',
+            file=sys.stderr,
+        )
 
     return monitor_exit_code
 

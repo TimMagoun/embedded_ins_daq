@@ -1,4 +1,5 @@
 # Implementation Step 13
+
 ## Optional Framing
 
 **Goal:** add non-authoritative framing metadata only after the raw logger is already robust.

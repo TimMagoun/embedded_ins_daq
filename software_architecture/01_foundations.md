@@ -1,9 +1,10 @@
 # Foundations
+
 ## ESP32-P4 Nano Robust UART Sensor Logger
 
 This document covers the architectural purpose, design rules, system context, and the top-level software decomposition.
 
----
+______________________________________________________________________
 
 ## Purpose
 
@@ -17,7 +18,7 @@ The software architecture defines how the logger firmware is organized so that:
 
 This architecture is implementation guidance, not source code.
 
----
+______________________________________________________________________
 
 ## Architectural Principles
 
@@ -31,7 +32,7 @@ This architecture is implementation guidance, not source code.
 - all detected loss conditions are surfaced explicitly
 - ownership of every buffer and queue is single-writer or otherwise explicitly synchronized
 
----
+______________________________________________________________________
 
 ## System Context
 
@@ -54,7 +55,7 @@ Platform assumptions carried in from the design document:
 
 The SD card binary log is the system of record.
 
----
+______________________________________________________________________
 
 ## High-Level Software Diagram
 

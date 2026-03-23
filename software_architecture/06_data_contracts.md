@@ -1,9 +1,10 @@
 # Data Contracts
+
 ## Shared Logical Interfaces Between Modules
 
 Field names here are conceptual. Implementations may use different concrete type names as long as the same contracts are preserved.
 
----
+______________________________________________________________________
 
 ## `RuntimeConfig`
 
@@ -25,7 +26,7 @@ Contract:
 
 - immutable once session start is accepted
 
----
+______________________________________________________________________
 
 ## `SessionInfo`
 
@@ -43,7 +44,7 @@ Contract:
 - treated as read-only by all consumers
 - filename base must be unique across power cycles when persisted to SD
 
----
+______________________________________________________________________
 
 ## `HealthSnapshot`
 
@@ -60,7 +61,7 @@ Contract:
 - health classification is derived from normalized faults and runtime watermarks
 - health state does not replace the session lifecycle state machine
 
----
+______________________________________________________________________
 
 ## `SensorProfile`
 
@@ -80,7 +81,7 @@ Contract:
 - immutable during a session
 - each enabled port resolves to exactly one effective sensor profile
 
----
+______________________________________________________________________
 
 ## `SensorReadinessSummary`
 
@@ -94,7 +95,7 @@ Contract:
 
 - consumed by `session_controller` as the gating decision for recording start
 
----
+______________________________________________________________________
 
 ## `UartChunkDescriptor`
 
@@ -111,7 +112,7 @@ Contract:
 - points to valid raw bytes until consumed by record building
 - ownership of the backing bytes remains with `uart_capture_service`
 
----
+______________________________________________________________________
 
 ## `FrameInputChunk`
 
@@ -127,7 +128,7 @@ Contract:
 - framing receives a copy or isolated buffer view
 - framing may process asynchronously without stalling capture
 
----
+______________________________________________________________________
 
 ## `BinaryRecordEnvelope`
 
@@ -146,7 +147,7 @@ Contract:
 - once appended to the pipeline, the envelope is immutable
 - append order defines on-disk order
 
----
+______________________________________________________________________
 
 ## `FaultEvent`
 

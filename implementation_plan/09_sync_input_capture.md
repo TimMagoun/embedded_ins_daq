@@ -1,4 +1,5 @@
 # Implementation Step 09
+
 ## SYNC Input Capture
 
 **Goal:** add timestamped SYNC edge capture without disturbing the proven raw UART logging path.

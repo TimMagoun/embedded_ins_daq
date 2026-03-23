@@ -1,7 +1,8 @@
 # Control And Sensor Modules
+
 ## Configuration, Session Control, and Sensor Lifecycle
 
----
+______________________________________________________________________
 
 ## Module Map In This Document
 
@@ -12,7 +13,7 @@
 - `local_control_service`
 - `fault_manager`
 
----
+______________________________________________________________________
 
 ## `config_manager`
 
@@ -39,7 +40,7 @@
 - owns parsed configuration structures
 - stores configuration in internal RAM
 
----
+______________________________________________________________________
 
 ## `session_controller`
 
@@ -79,7 +80,7 @@
 - owns `SessionInfo`
 - stores current state and counters in internal RAM
 
----
+______________________________________________________________________
 
 ## `sensor_manager`
 
@@ -123,7 +124,7 @@ Every driver-managed sensor uses the same normalized state model:
 - owns per-port sensor runtime state tables in internal RAM
 - owns retry counters, timeout state, and readiness summary in internal RAM
 
----
+______________________________________________________________________
 
 ## `sensor_driver_*`
 
@@ -159,7 +160,7 @@ Examples:
 - an IMU driver may send register transactions and wait for status confirmation
 - both still report normalized readiness through the same interface
 
----
+______________________________________________________________________
 
 ## `local_control_service`
 
@@ -183,7 +184,7 @@ Examples:
 
 - owns small input buffers in internal RAM
 
----
+______________________________________________________________________
 
 ## `fault_manager`
 
@@ -206,4 +207,3 @@ Examples:
 ### Memory Ownership
 
 - fault counters and recent-fault cache live in internal RAM
-

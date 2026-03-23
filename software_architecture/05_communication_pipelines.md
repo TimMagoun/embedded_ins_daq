@@ -1,7 +1,8 @@
 # Communication Pipelines
+
 ## End-To-End Flows Between Modules
 
----
+______________________________________________________________________
 
 ## UART Data Pipeline
 
@@ -28,7 +29,7 @@ Guarantees:
 - record creation is downstream of capture buffering
 - SD backpressure is absorbed by staging buffers until retention is exhausted
 
----
+______________________________________________________________________
 
 ## Sensor Preparation Pipeline
 
@@ -60,7 +61,7 @@ Guarantees:
 - failed required sensors block transition into active recording
 - raw capture does not begin until preparation gating is complete
 
----
+______________________________________________________________________
 
 ## Optional Framing Pipeline
 
@@ -81,7 +82,7 @@ Guarantees:
 - framing consumes copies, not authoritative capture buffers
 - raw logging remains valid if framing is disabled or overloaded
 
----
+______________________________________________________________________
 
 ## SYNC Edge Pipeline
 
@@ -99,7 +100,7 @@ sequenceDiagram
     RB->>BLP: BinaryRecordEnvelope(SYNC_EDGE)
 ```
 
----
+______________________________________________________________________
 
 ## Trigger Pipeline
 
@@ -118,7 +119,7 @@ sequenceDiagram
     RB->>BLP: BinaryRecordEnvelope(TRIGGER)
 ```
 
----
+______________________________________________________________________
 
 ## Fault And Status Pipeline
 
@@ -130,4 +131,3 @@ flowchart LR
     FM --> SLP[status_log_pipeline]
     SLP --> SDS[sd_storage_service]
 ```
-

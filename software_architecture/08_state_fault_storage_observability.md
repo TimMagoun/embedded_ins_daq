@@ -1,6 +1,6 @@
 # State, Fault, Storage, And Observability
 
----
+______________________________________________________________________
 
 ## Session State Machine
 
@@ -42,7 +42,7 @@ Rules:
 - `UNAVAILABLE` means authoritative recording or trusted session control is no longer defensible and usually coincides with `FAULTED`
 - degraded health must be latched visibly in counters, status output, and binary fault/status records whenever the binary path is still writable
 
----
+______________________________________________________________________
 
 ## Per-Port SYNC Mode State
 
@@ -59,7 +59,7 @@ Rule:
 
 - no direct `INPUT` to `TRIGGER_OUTPUT` transition is allowed during active recording without explicit reconfiguration policy
 
----
+______________________________________________________________________
 
 ## Fault Classes
 
@@ -78,7 +78,7 @@ Rule:
 - `SD_SYNC_FAILURE`
 - `INTERNAL_ASSERTION`
 
----
+______________________________________________________________________
 
 ## Fault Severity
 
@@ -87,7 +87,7 @@ Rule:
 - `ERROR`
 - `FATAL`
 
----
+______________________________________________________________________
 
 ## Fault Handling Rules
 
@@ -96,7 +96,7 @@ Rule:
 - `FATAL` transitions session state to `FAULTED` or halts healthy-recording claims immediately
 - any fault indicating raw data loss must always be represented in both counters and logged events
 
----
+______________________________________________________________________
 
 ## Storage And File Contracts
 
@@ -129,7 +129,7 @@ Recommended contract:
 - flush staged binary data on buffer-full, stop request, and periodic integrity checkpoints
 - perform explicit storage sync at bounded intervals appropriate for the media
 
----
+______________________________________________________________________
 
 ## Observability Contracts
 

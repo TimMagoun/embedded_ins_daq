@@ -1,4 +1,5 @@
 # Implementation Step 07
+
 ## Two-Port Reference Capture
 
 **Goal:** extend the logger to the first real reference configuration: `u-blox` GNSS on `PORT1` and UART IMU on `PORT2`.

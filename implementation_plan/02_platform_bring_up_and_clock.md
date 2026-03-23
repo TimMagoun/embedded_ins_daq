@@ -1,4 +1,5 @@
 # Implementation Step 02
+
 ## Platform Bring-Up And Clock
 
 **Goal:** establish the firmware skeleton, board assumptions, and the single monotonic device clock.

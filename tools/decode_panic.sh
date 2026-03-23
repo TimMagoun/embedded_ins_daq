@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   ./tools/decode_panic.sh --elf <firmware.elf> --panic-log <monitor.log> [--output <report.txt>]
 EOF
@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
             OUTPUT_PATH=$2
             shift 2
             ;;
-        -h|--help)
+        -h | --help)
             usage
             exit 0
             ;;
@@ -39,17 +39,29 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ -n "${ELF_PATH}" ]] || { usage >&2; exit 1; }
-[[ -n "${PANIC_LOG}" ]] || { usage >&2; exit 1; }
-[[ -f "${ELF_PATH}" ]] || { printf 'Missing ELF: %s\n' "${ELF_PATH}" >&2; exit 1; }
-[[ -f "${PANIC_LOG}" ]] || { printf 'Missing panic log: %s\n' "${PANIC_LOG}" >&2; exit 1; }
+[[ -n "${ELF_PATH}" ]] || {
+    usage >&2
+    exit 1
+}
+[[ -n "${PANIC_LOG}" ]] || {
+    usage >&2
+    exit 1
+}
+[[ -f "${ELF_PATH}" ]] || {
+    printf 'Missing ELF: %s\n' "${ELF_PATH}" >&2
+    exit 1
+}
+[[ -f "${PANIC_LOG}" ]] || {
+    printf 'Missing panic log: %s\n' "${PANIC_LOG}" >&2
+    exit 1
+}
 
 if [[ -z "${OUTPUT_PATH}" ]]; then
     OUTPUT_PATH="$(dirname "${PANIC_LOG}")/decoded_backtrace.txt"
 fi
 
 ADDR2LINE_BIN=${ADDR2LINE_BIN:-riscv32-esp-elf-addr2line}
-command -v "${ADDR2LINE_BIN}" >/dev/null 2>&1 || {
+command -v "${ADDR2LINE_BIN}" > /dev/null 2>&1 || {
     printf 'Missing tool: %s\n' "${ADDR2LINE_BIN}" >&2
     exit 1
 }

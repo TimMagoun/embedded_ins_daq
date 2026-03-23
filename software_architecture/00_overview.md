@@ -2,10 +2,10 @@
 
 ## ESP32-P4 Nano Robust UART Sensor Logger
 
-**Purpose:** Entry point for the split software architecture documents.  
+**Purpose:** Entry point for the split software architecture documents.
 **Source Document:** [Software_architecture_embedded_sensor_hub.md](/Users/timmagoun/Projects/embedded_ins_daq/Software_architecture_embedded_sensor_hub.md)
 
----
+______________________________________________________________________
 
 ## Document Set
 
@@ -14,16 +14,16 @@ This folder breaks the full software architecture into smaller files so engineer
 Recommended reading order:
 
 1. [01_foundations.md](01_foundations.md)
-2. [02_runtime_model.md](02_runtime_model.md)
-3. [03_control_and_sensor_modules.md](03_control_and_sensor_modules.md)
-4. [04_capture_and_logging_modules.md](04_capture_and_logging_modules.md)
-5. [05_communication_pipelines.md](05_communication_pipelines.md)
-6. [06_data_contracts.md](06_data_contracts.md)
-7. [07_memory_and_buffers.md](07_memory_and_buffers.md)
-8. [08_state_fault_storage_observability.md](08_state_fault_storage_observability.md)
-9. [09_implementation_guidance.md](09_implementation_guidance.md)
+1. [02_runtime_model.md](02_runtime_model.md)
+1. [03_control_and_sensor_modules.md](03_control_and_sensor_modules.md)
+1. [04_capture_and_logging_modules.md](04_capture_and_logging_modules.md)
+1. [05_communication_pipelines.md](05_communication_pipelines.md)
+1. [06_data_contracts.md](06_data_contracts.md)
+1. [07_memory_and_buffers.md](07_memory_and_buffers.md)
+1. [08_state_fault_storage_observability.md](08_state_fault_storage_observability.md)
+1. [09_implementation_guidance.md](09_implementation_guidance.md)
 
----
+______________________________________________________________________
 
 ## Piece Summary
 
@@ -63,7 +63,7 @@ State machines, fault classes and severity, storage/file contracts, and required
 
 Recommended implementation order, architecture compliance criteria, and a short summary of the whole design. Use this for planning and review.
 
----
+______________________________________________________________________
 
 ## How To Load Context Efficiently
 

@@ -1,10 +1,10 @@
 # ESP32-P4-NANO Capability Reference
 
-**Purpose:** Implementation-oriented reference for the Waveshare `ESP32-P4-NANO` board and the underlying `ESP32-P4` SoC.  
-**Last Reviewed:** 2026-03-13  
+**Purpose:** Implementation-oriented reference for the Waveshare `ESP32-P4-NANO` board and the underlying `ESP32-P4` SoC.
+**Last Reviewed:** 2026-03-13
 **Use This For:** Pin budgeting, peripheral selection, storage design, timing strategy, firmware architecture, and bring-up planning.
 
----
+______________________________________________________________________
 
 ## 1. Board Summary
 
@@ -32,7 +32,7 @@ Important practical takeaway:
 - This is a feature-rich dev board, but only `28` GPIOs are broken out on headers.
 - For products that need multiple external connectors, power distribution, protection, and clean signal routing, plan on using the Nano with an external breakout/carrier rather than as the final wiring surface.
 
----
+______________________________________________________________________
 
 ## 2. SoC Summary
 
@@ -53,7 +53,7 @@ Practical meaning:
 - There is enough compute headroom for concurrent capture, logging, and non-critical parsing.
 - There is enough memory for substantial buffering, especially with onboard PSRAM, but ISR-critical structures should still stay in internal RAM until measured otherwise.
 
----
+______________________________________________________________________
 
 ## 3. Memory and Storage Resources
 
@@ -92,7 +92,7 @@ Implementation guidance:
 - verify SD I/O voltage and pull-up requirements during hardware bring-up
 - benchmark several real cards because card latency behavior matters more than peak advertised throughput
 
----
+______________________________________________________________________
 
 ## 4. UART Capabilities
 
@@ -133,7 +133,7 @@ Note:
 
 - Confirm exact driver numbering and exposed pins in code and schematic before locking the implementation.
 
----
+______________________________________________________________________
 
 ## 5. GPIO and Signal Routing
 
@@ -161,7 +161,7 @@ Implementation guidance:
 - reserve the cleanest header pins for timing-sensitive inputs first
 - if using the board only for development, move sensor connectors and protection circuitry onto a separate breakout board
 
----
+______________________________________________________________________
 
 ## 6. Timing and Real-Time Control Features
 
@@ -228,7 +228,7 @@ Decision rule:
 - start with the simplest path that meets jitter and timestamp requirements
 - only add ETM complexity if measurements show ISR-based toggling is not good enough
 
----
+______________________________________________________________________
 
 ## 7. Onboard Interfaces and Their Implementation Impact
 
@@ -296,7 +296,7 @@ Their main implementation relevance is negative:
 
 - they consume pins, bandwidth, and attention if accidentally treated as in-scope
 
----
+______________________________________________________________________
 
 ## 8. Power and Bring-Up Considerations
 
@@ -313,7 +313,7 @@ Implementation guidance:
 - if powering multiple external sensors, add explicit load-switching and current limiting on the sensor breakout/carrier
 - treat the dev board as controller logic, not as the final field-power-distribution design
 
----
+______________________________________________________________________
 
 ## 9. SDK and Software Support
 
@@ -346,7 +346,7 @@ For this project, the most relevant ESP-IDF areas are:
 - SDMMC host driver
 - FreeRTOS tasking and memory placement
 
----
+______________________________________________________________________
 
 ## 10. What This Means for the Sensor Logger
 
@@ -374,7 +374,7 @@ Recommended implementation posture:
 - use the onboard TF slot in `SDMMC` mode
 - preserve the console path during bring-up
 
----
+______________________________________________________________________
 
 ## 11. Open Items To Verify Before Locking Hardware
 
@@ -388,23 +388,23 @@ These items should be checked directly against the board pinout image, schematic
 - whether PSRAM-backed buffers meet worst-case latency goals
 - actual sensor power budget available from the chosen carrier design
 
----
+______________________________________________________________________
 
 ## 12. Recommended Source Set
 
 Primary sources used for this reference:
 
-- Espressif ESP32-P4 SoC overview  
+- Espressif ESP32-P4 SoC overview
   https://www.espressif.com/en/products/socs/esp32-p4
-- ESP-IDF ESP32-P4 peripherals index  
+- ESP-IDF ESP32-P4 peripherals index
   https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/api-reference/peripherals/index.html
-- ESP-IDF ESP32-P4 UART driver docs  
+- ESP-IDF ESP32-P4 UART driver docs
   https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/api-reference/peripherals/uart.html
-- ESP-IDF ESP32-P4 SDMMC host docs  
+- ESP-IDF ESP32-P4 SDMMC host docs
   https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/api-reference/peripherals/sdmmc_host.html
-- Waveshare ESP32-P4-NANO wiki  
+- Waveshare ESP32-P4-NANO wiki
   https://www.waveshare.com/wiki/ESP32-P4-NANO
-- Waveshare ESP32-P4-NANO product page  
+- Waveshare ESP32-P4-NANO product page
   https://www.waveshare.com/esp32-p4-nano.htm
 
 Recommended follow-up references when implementation starts:
@@ -412,4 +412,3 @@ Recommended follow-up references when implementation starts:
 - ESP32-P4 Technical Reference Manual
 - `ESP32-P4-NANO` schematic and pinout files
 - latest ESP-IDF examples for UART, GPTimer, ETM, and SDMMC
-

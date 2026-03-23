@@ -1,11 +1,12 @@
 # Product Requirements Document
+
 ## Robust UART Sensor Logger
 
-**Version:** 1.1  
-**Status:** Draft  
+**Version:** 1.1
+**Status:** Draft
 **Last Updated:** 2026-03-12
 
----
+______________________________________________________________________
 
 ## 1. Purpose
 
@@ -18,7 +19,7 @@ This device is a field logger for UART-based sensors. Its purpose is to:
 
 The device is a logger first. Features that are not required for reliable capture, timing, and SD logging are out of scope for this revision.
 
----
+______________________________________________________________________
 
 ## 2. Scope
 
@@ -47,7 +48,7 @@ The device is a logger first. Features that are not required for reliable captur
 
 Out-of-scope items shall not be required for compliance with this PRD.
 
----
+______________________________________________________________________
 
 ## 3. Definitions
 
@@ -61,7 +62,7 @@ Out-of-scope items shall not be required for compliance with this PRD.
 
 The terms **shall**, **shall not**, and **must** indicate mandatory requirements. The term **may** indicates non-required behavior.
 
----
+______________________________________________________________________
 
 ## 4. Product-Level Requirements
 
@@ -71,7 +72,7 @@ The terms **shall**, **shall not**, and **must** indicate mandatory requirements
 - **REQ-PROD-04:** The device shall log only information that it directly measures or derives explicitly as metadata.
 - **REQ-PROD-05:** The device shall remain operable without network connectivity.
 
----
+______________________________________________________________________
 
 ## 5. Physical Interfaces
 
@@ -89,7 +90,7 @@ The terms **shall**, **shall not**, and **must** indicate mandatory requirements
 - **REQ-PORT-07:** Each port shall provide a 3.3 V sensor supply.
 - **REQ-PORT-08:** The per-port current limit and total available sensor power budget shall be defined by the hardware design and documented for users.
 
----
+______________________________________________________________________
 
 ## 6. UART Capture Requirements
 
@@ -108,7 +109,7 @@ The terms **shall**, **shall not**, and **must** indicate mandatory requirements
 - **REQ-UART-13:** For each detected UART receive overflow condition, the device shall increment a per-port loss counter and log an error or status record identifying the affected port.
 - **REQ-UART-14:** If bytes are lost on a port, the log shall contain enough information to determine that a loss event occurred, even if the exact number of lost bytes cannot be measured.
 
----
+______________________________________________________________________
 
 ## 7. Synchronization Requirements
 
@@ -126,7 +127,7 @@ The terms **shall**, **shall not**, and **must** indicate mandatory requirements
 - **REQ-SYNC-07:** Any packet-to-SYNC association shall be represented in the log as metadata, not as a measured packet timestamp.
 - **REQ-SYNC-08:** The absence of packet-to-SYNC association metadata shall not prevent compliant raw capture logging.
 
----
+______________________________________________________________________
 
 ## 8. Trigger Output Requirements
 
@@ -137,7 +138,7 @@ The terms **shall**, **shall not**, and **must** indicate mandatory requirements
 - **REQ-TRIG-05:** Each generated trigger pulse shall produce a logged trigger record.
 - **REQ-TRIG-06:** Each trigger record shall contain at least the port index and device-clock timestamp.
 
----
+______________________________________________________________________
 
 ## 9. Timing Requirements
 
@@ -148,7 +149,7 @@ The terms **shall**, **shall not**, and **must** indicate mandatory requirements
 - **REQ-CLK-05:** The session log shall store only device-clock timestamps.
 - **REQ-CLK-06:** Any correlation between the device clock and absolute time references shall be performed offboard.
 
----
+______________________________________________________________________
 
 ## 10. Logging Requirements
 
@@ -175,7 +176,7 @@ The terms **shall**, **shall not**, and **must** indicate mandatory requirements
 - **REQ-LOG-13:** The device shall preserve all fully written binary log records across unclean power loss.
 - **REQ-LOG-14:** The binary log shall allow detection of an uncleanly terminated session.
 
----
+______________________________________________________________________
 
 ## 11. Storage Performance and Failure Handling
 
@@ -186,7 +187,7 @@ The terms **shall**, **shall not**, and **must** indicate mandatory requirements
 - **REQ-SD-05:** The device shall not silently discard required records.
 - **REQ-SD-06:** If SD I/O fails during a session, the device shall record the fault in the available local status path and shall stop claiming healthy persistent logging.
 
----
+______________________________________________________________________
 
 ## 12. Configuration and Operation Requirements
 
@@ -208,7 +209,7 @@ The terms **shall**, **shall not**, and **must** indicate mandatory requirements
 - **REQ-OPS-03:** The local session-control mechanism may be a boot policy, a physical control, a serial console command, or a combination of these.
 - **REQ-OPS-04:** Network connectivity shall not be required to start, stop, or complete a session.
 
----
+______________________________________________________________________
 
 ## 13. Non-Functional Requirements
 
@@ -218,7 +219,7 @@ The terms **shall**, **shall not**, and **must** indicate mandatory requirements
 - **REQ-NF-04:** After a firmware reset or restart, prior session data already written to SD card shall remain preserved.
 - **REQ-NF-05:** The design shall prefer simple, testable mechanisms over optional feature breadth.
 
----
+______________________________________________________________________
 
 ## 14. Deferred Features
 
@@ -233,7 +234,7 @@ The following features are intentionally deferred and are not required by this P
 - In-device absolute-time discipline
 - Runtime-loaded parser plugin support
 
----
+______________________________________________________________________
 
 ## 15. Revision History
 

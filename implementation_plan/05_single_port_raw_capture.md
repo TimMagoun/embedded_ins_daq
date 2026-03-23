@@ -1,4 +1,5 @@
 # Implementation Step 05
+
 ## Single-Port Raw Capture
 
 **Goal:** capture raw UART data on `PORT1` reliably into preallocated buffers with the revision-1 ISR/FIFO timestamp model, and publish UART records without involving SD yet.

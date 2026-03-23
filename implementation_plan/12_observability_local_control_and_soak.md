@@ -1,4 +1,5 @@
 # Implementation Step 12
+
 ## Observability, Local Control, And Soak
 
 **Goal:** make the logger operationally robust for long unattended runs and agent-driven debugging.

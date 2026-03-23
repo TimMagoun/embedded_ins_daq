@@ -1,4 +1,5 @@
 # Implementation Step 10
+
 ## Trigger Output
 
 **Goal:** generate logged trigger pulses with bounded jitter while concurrent logging remains active.

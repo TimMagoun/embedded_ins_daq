@@ -1,4 +1,5 @@
 # Implementation Step 08
+
 ## Four-Port Scaling And Loss Handling
 
 **Goal:** generalize the proven two-port logger to the full four-port architecture and make overload behavior explicit.

@@ -20,9 +20,9 @@ _setup_finish() {
     unset -f _setup_finish
     unset _setup_is_sourced
     if [[ ${code} -eq 0 ]]; then
-        return 0 2>/dev/null || exit 0
+        return 0 2> /dev/null || exit 0
     fi
-    return "${code}" 2>/dev/null || exit "${code}"
+    return "${code}" 2> /dev/null || exit "${code}"
 }
 
 if [[ ${_setup_is_sourced} -ne 1 ]]; then

@@ -42,9 +42,11 @@
 
 # Python cache
 __pycache__/
+.ruff_cache/
+.venv/
 
 # build
-build/ 
+build/
 build_host/
 
 artifacts/

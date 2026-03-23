@@ -1,4 +1,5 @@
 # Implementation Step 03
+
 ## Config, Session, And Fault Foundations
 
 **Goal:** make startup, session state, and fault handling deterministic before any real capture starts.

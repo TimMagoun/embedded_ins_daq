@@ -12,6 +12,13 @@ This repository keeps the default firmware workflow on standard `ESP-IDF` comman
 
 Small helper scripts exist only where they add repeatability for environment validation, artifact capture, and device-case orchestration.
 
+Python developer tooling is managed with `uv`. Formatting and pre-commit hooks are configured for:
+
+- Python with `black`
+- shell with `shfmt`
+- Markdown with `mdformat`
+- C/C++ with `clang-format` using Google style
+
 ## Quickstart
 
 ### 1. Create a repo-local environment file
@@ -54,6 +61,27 @@ The bootstrap script verifies:
 - the active `ESP-IDF` version is new enough for this project
 - `esp32p4` is supported by the active toolchain
 - desktop tooling like `cmake` and `ctest` is present
+- `uv` is present for the repo's Python tooling
+
+### 3a. Install the developer tooling
+
+Install `uv` first if it is not already on your `PATH`, then sync the repo-local Python environment:
+
+```bash
+uv sync --group dev
+```
+
+Install the git hook:
+
+```bash
+uv run --group dev pre-commit install
+```
+
+Run the full formatter pass at any time with:
+
+```bash
+uv run --group dev pre-commit run --all-files
+```
 
 ### 4. Select the target
 

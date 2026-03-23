@@ -1,7 +1,8 @@
 # Memory And Buffers
+
 ## Placement Rules, Buffer Ownership, and Queue Inventory
 
----
+______________________________________________________________________
 
 ## Memory Regions
 
@@ -9,12 +10,12 @@ Use three logical memory categories:
 
 1. **Internal low-latency RAM**
    For ISR-visible structures and hot-path queues.
-2. **Internal general RAM**
+1. **Internal general RAM**
    For active task state, control structures, and moderate-size buffers.
-3. **PSRAM**
+1. **PSRAM**
    For large non-critical buffers only after validation.
 
----
+______________________________________________________________________
 
 ## Mandatory Internal-RAM Residents
 
@@ -30,7 +31,7 @@ These must live in internal RAM:
 - binary/status queue metadata
 - short-lived record build scratch space
 
----
+______________________________________________________________________
 
 ## Preferred Internal-RAM Residents For Revision 1
 
@@ -46,7 +47,7 @@ Reason:
 - the design target is at least `500 ms` of UART retention per enabled port at its configured baud rate
 - the reference sizing from the design doc is `64 kB` per enabled port, which exceeds the `921600` baud minimum-retention requirement with margin
 
----
+______________________________________________________________________
 
 ## Candidate PSRAM Residents After Benchmarking
 
@@ -57,7 +58,7 @@ These may move to PSRAM if measured safe:
 - long status text buffers
 - copied parser input buffers
 
----
+______________________________________________________________________
 
 ## Allocation Policy
 
@@ -66,7 +67,7 @@ These may move to PSRAM if measured safe:
 - avoid unbounded dynamic allocation during recording
 - prefer fixed-capacity pools and ring buffers
 
----
+______________________________________________________________________
 
 ## Buffer And Queue Inventory
 

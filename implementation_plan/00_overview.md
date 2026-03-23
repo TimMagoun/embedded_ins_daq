@@ -1,11 +1,12 @@
 # Implementation Plan Overview
+
 ## ESP32-P4 Nano Robust UART Sensor Logger
 
 This folder turns the software architecture into a staged implementation plan with small, atomic milestones.
 
 The plan is optimized for one outcome first: a robust embedded sensor logger that preserves raw UART data, timestamps timing events correctly, and makes loss and storage faults explicit.
 
----
+______________________________________________________________________
 
 ## Planning Principles
 
@@ -19,7 +20,7 @@ The plan is optimized for one outcome first: a robust embedded sensor logger tha
 - ports `3` and `4` stay disabled until the multi-port scaling stage
 - optional framing stays behind raw capture, storage, and timing integrity
 
----
+______________________________________________________________________
 
 ## Command Contract
 
@@ -34,25 +35,25 @@ Each stage should add to a stable automation surface. Prefer direct `idf.py`, `c
 
 These commands define the intended workflow shape. Wrapper scripts are optional unless they provide capabilities that direct tool invocation does not.
 
----
+______________________________________________________________________
 
 ## Stage Order
 
 1. [01_development_environment_and_debug.md](01_development_environment_and_debug.md)
-2. [02_platform_bring_up_and_clock.md](02_platform_bring_up_and_clock.md)
-3. [03_config_session_and_faults.md](03_config_session_and_faults.md)
-4. [04_binary_records_and_staging.md](04_binary_records_and_staging.md)
-5. [05_single_port_raw_capture.md](05_single_port_raw_capture.md)
-6. [06_single_port_sd_logger.md](06_single_port_sd_logger.md)
-7. [07_two_port_reference_capture.md](07_two_port_reference_capture.md)
-8. [08_four_port_scaling_and_loss_handling.md](08_four_port_scaling_and_loss_handling.md)
-9. [09_sync_input_capture.md](09_sync_input_capture.md)
-10. [10_trigger_output.md](10_trigger_output.md)
-11. [11_sensor_preparation_and_readiness.md](11_sensor_preparation_and_readiness.md)
-12. [12_observability_local_control_and_soak.md](12_observability_local_control_and_soak.md)
-13. [13_optional_framing.md](13_optional_framing.md)
+1. [02_platform_bring_up_and_clock.md](02_platform_bring_up_and_clock.md)
+1. [03_config_session_and_faults.md](03_config_session_and_faults.md)
+1. [04_binary_records_and_staging.md](04_binary_records_and_staging.md)
+1. [05_single_port_raw_capture.md](05_single_port_raw_capture.md)
+1. [06_single_port_sd_logger.md](06_single_port_sd_logger.md)
+1. [07_two_port_reference_capture.md](07_two_port_reference_capture.md)
+1. [08_four_port_scaling_and_loss_handling.md](08_four_port_scaling_and_loss_handling.md)
+1. [09_sync_input_capture.md](09_sync_input_capture.md)
+1. [10_trigger_output.md](10_trigger_output.md)
+1. [11_sensor_preparation_and_readiness.md](11_sensor_preparation_and_readiness.md)
+1. [12_observability_local_control_and_soak.md](12_observability_local_control_and_soak.md)
+1. [13_optional_framing.md](13_optional_framing.md)
 
----
+______________________________________________________________________
 
 ## Definition Of Progress
 

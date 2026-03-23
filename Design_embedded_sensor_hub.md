@@ -1,11 +1,12 @@
 # Design Document
+
 ## ESP32-P4 Nano Robust UART Sensor Logger
 
-**Version:** 0.1  
-**Status:** Draft  
+**Version:** 0.1
+**Status:** Draft
 **Last Updated:** 2026-03-12
 
----
+______________________________________________________________________
 
 ## 1. Purpose
 
@@ -13,7 +14,7 @@ This document defines a concrete system design for implementing the UART sensor 
 
 The design is intentionally biased toward reliable capture, deterministic timing, and recoverable SD logging. Optional parsing and convenience features are isolated from the capture path so they cannot compromise data preservation.
 
----
+______________________________________________________________________
 
 ## 2. Design Goals
 
@@ -27,7 +28,7 @@ The system shall:
 - surface data loss and storage faults explicitly
 - operate fully without network connectivity
 
----
+______________________________________________________________________
 
 ## 3. Key Assumptions
 
@@ -38,7 +39,7 @@ The system shall:
 - The design uses 4 of the ESP32-P4's 5 standard UART controllers for sensors and reserves `UART0` for console/download during development unless bring-up shows a different mapping is preferable.
 - GPIO assignment shall be finalized only after reconciling the exposed header pins with the board's onboard peripherals and the final sensor connector scheme.
 
----
+______________________________________________________________________
 
 ## 4. System Overview
 
@@ -48,15 +49,15 @@ The system is divided into six major blocks:
 
 1. **Capture front end**
    Receives UART data and SYNC edges from 4 sensor ports.
-2. **Timebase and trigger engine**
+1. **Timebase and trigger engine**
    Maintains the microsecond device clock and schedules trigger pulses.
-3. **Capture buffering**
+1. **Capture buffering**
    Holds UART bytes and event records in RAM so capture is not blocked by SD latency.
-4. **Persistent logging**
+1. **Persistent logging**
    Writes a binary session log and a human-readable status log to SD card.
-5. **Control and configuration**
+1. **Control and configuration**
    Loads configuration from SD, validates it, and starts/stops sessions locally.
-6. **Sensor preparation**
+1. **Sensor preparation**
    Applies per-sensor initialization, readiness checks, and arming steps before recording begins.
 
 ### 4.2 Design Principle
@@ -72,7 +73,7 @@ The capture path is strictly separated from optional interpretation:
 
 This directly supports the PRD requirement that the logger remain a logger first.
 
----
+______________________________________________________________________
 
 ## 5. Hardware Architecture
 
@@ -178,7 +179,7 @@ The SD card shall use the board's onboard TF slot in native `SDMMC` mode. ESP32-
 
 The design does not require UHS-I operation. Standard 3.3 V SD-card operation is sufficient for this logger.
 
----
+______________________________________________________________________
 
 ## 6. Timing Architecture
 
@@ -225,7 +226,7 @@ Each trigger emission also creates a log event containing:
 
 To meet the 5 us jitter requirement, trigger generation shall have higher priority than framing, status printing, and file-system formatting work.
 
----
+______________________________________________________________________
 
 ## 7. Data Path Architecture
 
@@ -234,23 +235,23 @@ To meet the 5 us jitter requirement, trigger generation shall have higher priori
 Per-port UART receive flow:
 
 1. UART hardware receives bytes without software polling.
-2. RX interrupt-driven FIFO service moves bytes into a per-port circular buffer.
-3. A capture worker packages buffered bytes into UART log records.
-4. Log records are appended to a shared binary-log staging queue.
-5. SD writer task flushes staged records to the session file.
+1. RX interrupt-driven FIFO service moves bytes into a per-port circular buffer.
+1. A capture worker packages buffered bytes into UART log records.
+1. Log records are appended to a shared binary-log staging queue.
+1. SD writer task flushes staged records to the session file.
 
 Per-port SYNC flow:
 
 1. Edge interrupt occurs.
-2. ISR timestamps the edge.
-3. Event is queued to the binary-log staging queue.
+1. ISR timestamps the edge.
+1. Event is queued to the binary-log staging queue.
 
 Per-port trigger flow:
 
 1. Timer alarm asserts output.
-2. ISR timestamps the assertion.
-3. Trigger record is queued.
-4. A later timer alarm deasserts the output.
+1. ISR timestamps the assertion.
+1. Trigger record is queued.
+1. A later timer alarm deasserts the output.
 
 ## 7.1.1 UART Timestamp Model
 
@@ -312,7 +313,7 @@ If any buffer fills beyond safe limits:
 
 The system shall never silently discard required records.
 
----
+______________________________________________________________________
 
 ## 8. Firmware Architecture
 
@@ -432,7 +433,7 @@ Session-start rule:
 - tracks queue depth, buffer watermarks, SD latency, and loss counters
 - drives status LED patterns and fault transitions
 
----
+______________________________________________________________________
 
 ## 9. Logging Design
 
@@ -527,7 +528,7 @@ The status log shall contain concise entries for:
 - trigger enable/disable
 - notable internal warnings
 
----
+______________________________________________________________________
 
 ## 10. Configuration Design
 
@@ -613,7 +614,7 @@ Configuration validation shall reject:
 
 Invalid configuration prevents session start and is reported locally.
 
----
+______________________________________________________________________
 
 ## 11. Session Control and Local Operation
 
@@ -635,13 +636,13 @@ Recommended behavior:
 Session startup sequence:
 
 1. validate configuration
-2. mount SD and prepare session files
-3. run sensor initialization for all enabled ports
-4. verify all required sensors are `READY`
-5. arm trigger outputs and SYNC roles
-6. enable active recording
+1. mount SD and prepare session files
+1. run sensor initialization for all enabled ports
+1. verify all required sensors are `READY`
+1. arm trigger outputs and SYNC roles
+1. enable active recording
 
----
+______________________________________________________________________
 
 ## 12. Error Handling and Fault Policy
 
@@ -707,7 +708,7 @@ Operational policy:
 
 This matches the PRD requirement that data loss and storage faults be explicit.
 
----
+______________________________________________________________________
 
 ## 13. Optional Framing Support
 
@@ -727,7 +728,7 @@ If framing falls behind or fails, raw logging continues unchanged.
 
 Sensor-specific initialization is distinct from framing. A sensor driver may use protocol-aware control messages before recording begins, but once the session starts, raw byte preservation remains authoritative and independent of parser success.
 
----
+______________________________________________________________________
 
 ## 14. Verification Strategy
 
@@ -763,7 +764,7 @@ The implementation passes design intent when it demonstrates:
 - explicit detection and logging of loss conditions
 - readable recovery of logs after unclean power removal
 
----
+______________________________________________________________________
 
 ## 15. Open Design Decisions
 
@@ -780,7 +781,7 @@ The following items should be finalized during schematic and firmware bring-up:
 
 None of these open items change the core architecture.
 
----
+______________________________________________________________________
 
 ## 16. Summary
 

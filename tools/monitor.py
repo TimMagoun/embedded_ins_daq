@@ -17,7 +17,6 @@ import sys
 import time
 from dataclasses import dataclass
 
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_BUILD_DIR = REPO_ROOT / "build"
 DEFAULT_LOG_PATH = REPO_ROOT / "artifacts" / "latest" / "device" / "monitor.log"
@@ -45,13 +44,17 @@ class MonitorResult:
 
 def require_idf_py() -> None:
     if shutil.which("idf.py") is None:
-        raise DeviceToolError("idf.py is not available in PATH. Run 'source ./tools/setup.sh' first.")
+        raise DeviceToolError(
+            "idf.py is not available in PATH. Run 'source ./tools/setup.sh' first."
+        )
 
 
 def resolve_port(arg_port: str | None) -> str:
     port = arg_port or os.environ.get("BOARD_PORT")
     if not port:
-        raise DeviceToolError("No serial port configured. Run 'source ./tools/setup.sh' or pass --port.")
+        raise DeviceToolError(
+            "No serial port configured. Run 'source ./tools/setup.sh' or pass --port."
+        )
     return port
 
 
@@ -114,7 +117,9 @@ def read_monitor_chunk(master_fd: int) -> bytes | None:
     return chunk or None
 
 
-def update_state(search_buffer: str, text: str, ready_banner: str | None, result: MonitorResult) -> str:
+def update_state(
+    search_buffer: str, text: str, ready_banner: str | None, result: MonitorResult
+) -> str:
     search_buffer = (search_buffer + text)[-16384:]
     if ready_banner and ready_banner in search_buffer:
         result.ready_seen = True
@@ -191,7 +196,9 @@ def stream_monitor(
                     log_handle.write(text)
                     log_handle.flush()
 
-                    search_buffer = update_state(search_buffer, text, ready_banner, result)
+                    search_buffer = update_state(
+                        search_buffer, text, ready_banner, result
+                    )
                     if result.ready_seen or result.panic_seen or result.gdbstub_seen:
                         break
 
@@ -289,7 +296,10 @@ def main() -> int:
         print(f"[device-tools] ERROR: {exc}", file=sys.stderr)
         return 1
     except subprocess.CalledProcessError as exc:
-        print(f"[device-tools] ERROR: command failed with exit code {exc.returncode}", file=sys.stderr)
+        print(
+            f"[device-tools] ERROR: command failed with exit code {exc.returncode}",
+            file=sys.stderr,
+        )
         if exc.stderr:
             stderr = exc.stderr.strip()
             if stderr:
