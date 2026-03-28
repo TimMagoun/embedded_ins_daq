@@ -5,6 +5,7 @@
 #include "board_profile.h"
 #include "clock_probe.h"
 #include "clock_service.h"
+#include "clock_smoke.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -16,7 +17,7 @@ static const char* TAG = "embedded_ins_daq";
 static const uint32_t kClockSmokeTaskDelayMs = 50U;
 static const uint32_t kClockSmokeMaxAttempts = 20U;
 
-static PLATFORM_INTERNAL_RAM clock_service_isr_smoke_state_t s_isr_smoke_state;
+static PLATFORM_INTERNAL_RAM clock_smoke_isr_state_t s_isr_smoke_state;
 
 static uint64_t app_clock_probe_read(void* ctx) {
   (void)ctx;
@@ -36,7 +37,7 @@ static bool run_clock_monotonicity_smoke(void) {
            (unsigned long long)last_sample);
 
   for (attempt = 0; attempt < kClockSmokeMaxAttempts; ++attempt) {
-    if (clock_isr_smoke_ready(&s_isr_smoke_state, 3U)) {
+    if (clock_smoke_isr_ready(&s_isr_smoke_state, 3U)) {
       ESP_LOGI(TAG, "Clock ISR smoke passed: isr_samples=%lu last_isr_us=%llu",
                (unsigned long)s_isr_smoke_state.isr_sample_count,
                (unsigned long long)s_isr_smoke_state.last_isr_timestamp_us);
@@ -64,7 +65,7 @@ void app_main(void) {
   }
 
   runtime_banner_log_startup(board);
-  ESP_ERROR_CHECK(clock_start_isr_smoke(&s_isr_smoke_state));
+  ESP_ERROR_CHECK(clock_smoke_start_isr(&s_isr_smoke_state));
 
   if (run_clock_monotonicity_smoke()) {
     runtime_banner_log_ready("clock_monotonicity");

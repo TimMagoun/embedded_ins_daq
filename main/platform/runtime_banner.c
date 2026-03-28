@@ -3,10 +3,7 @@
 #include <inttypes.h>
 
 #include "clock_service.h"
-#include "esp_app_desc.h"
-#include "esp_flash.h"
 #include "esp_log.h"
-#include "esp_psram.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -29,38 +26,11 @@ static void runtime_health_task(void* arg) {
 }
 
 void runtime_banner_log_startup(const board_profile_t* profile) {
-  const esp_app_desc_t* app_desc = esp_app_get_description();
-  uint32_t flash_size = 0;
-  esp_err_t flash_err = esp_flash_get_size(NULL, &flash_size);
   int i;
 
-  ESP_LOGI(TAG, "Firmware version: %s", app_desc->version);
-  ESP_LOGI(TAG, "Build ID: %s", EMBEDDED_INS_DAQ_BUILD_ID);
   ESP_LOGI(TAG, "Active board profile: %s", profile->profile_name);
-  ESP_LOGI(TAG, "Console path: %s (UART%d TX=%d RX=%d)",
-           profile->console_path_name, profile->console_uart_controller,
-           profile->console_tx_gpio, profile->console_rx_gpio);
-  ESP_LOGI(TAG, "Clock backend: %s", clock_backend_name());
-  ESP_LOGI(TAG, "Target: %s", CONFIG_IDF_TARGET);
   ESP_LOGI(TAG, "Free heap: %lu bytes",
            (unsigned long)esp_get_free_heap_size());
-
-  if (flash_err == ESP_OK) {
-    ESP_LOGI(TAG, "Detected NOR flash: %" PRIu32 " MB",
-             flash_size / (1024U * 1024U));
-  } else {
-    ESP_LOGW(TAG, "Failed to query flash size: %s", esp_err_to_name(flash_err));
-  }
-
-  if (esp_psram_is_initialized()) {
-    ESP_LOGI(TAG, "Detected PSRAM: %u MB",
-             (unsigned)(esp_psram_get_size() / (1024U * 1024U)));
-  } else {
-    ESP_LOGW(TAG, "PSRAM is not initialized");
-  }
-
-  ESP_LOGI(TAG, "SD interface: onboard TF slot via SDMMC_HOST_SLOT_%d",
-           profile->sdmmc_slot);
   for (i = 0; i < BOARD_PORT_COUNT; ++i) {
     const board_port_profile_t* port = &profile->ports[i];
     if (!port->enabled) {

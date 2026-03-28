@@ -23,8 +23,7 @@ Use this skill to drive day-to-day ESP-IDF development from the terminal with th
 
 ## Verify The Environment
 
-- In this workspace, prefer the repo-local wrapper `scripts/idf`, which sources `/home/agent/esp/esp-idf/export.sh` and then runs `idf.py`.
-- Use `scripts/idf --version` to confirm the tool is available before running build, flash, monitor, or test commands.
+- Use `idf.py --version` to confirm the tool is available before running build, flash, monitor, or test commands.
 - If `idf.py` is missing, inspect whether the wrapper path or export script path is wrong before changing shell startup files.
 - Check `echo $IDF_PATH` when the environment looks incomplete.
 - Do not guess the ESP-IDF installation path if the repo already documents it; read local instructions first.
@@ -34,7 +33,7 @@ For common commands, load [references/commands.md](./references/commands.md).
 
 ## Build Workflow
 
-- Use `scripts/idf build` for the normal edit-build loop in this workspace.
+- Use `idf.py build` for the normal edit-build loop in this workspace.
 - Use `idf.py app` when only the application image is needed and the project supports it.
 - Use `idf.py fullclean build` only when the build directory is stale, the target changed, or configuration drift is suspected.
 - Use `idf.py reconfigure` after editing CMake or component metadata when a full clean is unnecessary.
@@ -43,7 +42,7 @@ For common commands, load [references/commands.md](./references/commands.md).
 ## Flash And Monitor
 
 - Identify the serial port explicitly when more than one device may be attached.
-- Use `scripts/idf -p <port> flash monitor` when the user wants both programming and immediate logs.
+- Use `idf.py -p <port> flash monitor` when the user wants both programming and immediate logs.
 - Use `idf.py -p <port> app-flash` if only the app image should be updated.
 - Remember that `idf.py monitor` requires a real TTY; if plain pipe execution fails, rerun it in a PTY-backed terminal session.
 - Exit the monitor cleanly instead of killing the process abruptly so the tty is released.

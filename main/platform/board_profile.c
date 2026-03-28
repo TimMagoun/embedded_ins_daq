@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+/* UART0 is the USB-C bridge used during bring-up for flashing and logs. */
 static const board_profile_t kEsp32P4NanoProfile = {
     .profile_name = "esp32_p4_nano_rev1_step02",
     .console_path_name = "usb-c-uart0",
@@ -27,22 +28,8 @@ static const board_profile_t kEsp32P4NanoProfile = {
                 .sync_gpio = 25,
                 .enabled = true,
             },
-            {
-                .name = "PORT3",
-                .uart_controller = BOARD_UART_UNUSED,
-                .tx_gpio = BOARD_GPIO_UNUSED,
-                .rx_gpio = BOARD_GPIO_UNUSED,
-                .sync_gpio = BOARD_GPIO_UNUSED,
-                .enabled = false,
-            },
-            {
-                .name = "PORT4",
-                .uart_controller = BOARD_UART_UNUSED,
-                .tx_gpio = BOARD_GPIO_UNUSED,
-                .rx_gpio = BOARD_GPIO_UNUSED,
-                .sync_gpio = BOARD_GPIO_UNUSED,
-                .enabled = false,
-            },
+            BOARD_PORT_PROFILE_DISABLED("PORT3"),
+            BOARD_PORT_PROFILE_DISABLED("PORT4"),
         },
 };
 
@@ -61,11 +48,21 @@ static void set_result(board_profile_validation_result_t* result,
 
 static bool gpio_is_used(int gpio) { return gpio >= 0; }
 
+static bool string_has_text(const char* value) {
+  return value != NULL && value[0] != '\0';
+}
+
+static bool port_pins_are_unique(const board_port_profile_t* port) {
+  return port->tx_gpio != port->rx_gpio && port->tx_gpio != port->sync_gpio &&
+         port->rx_gpio != port->sync_gpio;
+}
+
+/*
+ * Check each enabled port pin against the console pins and every other enabled
+ * port so the static board description never reuses a GPIO unintentionally.
+ */
 static bool check_pin_conflict(const board_profile_t* profile, int port_index,
                                int gpio, board_profile_validation_result_t* r) {
-  int other_port_index;
-  const board_port_profile_t* other_port;
-
   if (!gpio_is_used(gpio)) {
     return true;
   }
@@ -75,9 +72,9 @@ static bool check_pin_conflict(const board_profile_t* profile, int port_index,
     return false;
   }
 
-  for (other_port_index = 0; other_port_index < BOARD_PORT_COUNT;
+  for (int other_port_index = 0; other_port_index < BOARD_PORT_COUNT;
        ++other_port_index) {
-    other_port = &profile->ports[other_port_index];
+    const board_port_profile_t* other_port = &profile->ports[other_port_index];
     if (!other_port->enabled || other_port_index == port_index) {
       continue;
     }
@@ -99,21 +96,17 @@ const board_profile_t* board_profile_active(void) {
 
 bool board_profile_validate(const board_profile_t* profile,
                             board_profile_validation_result_t* result) {
-  int i;
-  const board_port_profile_t* port;
-
   if (profile == NULL) {
     set_result(result, BOARD_PROFILE_ERR_NULL_PROFILE, -1, -1, -1);
     return false;
   }
 
-  if (profile->profile_name == NULL || profile->profile_name[0] == '\0') {
+  if (!string_has_text(profile->profile_name)) {
     set_result(result, BOARD_PROFILE_ERR_PROFILE_NAME, -1, -1, -1);
     return false;
   }
 
-  if (profile->console_path_name == NULL ||
-      profile->console_path_name[0] == '\0') {
+  if (!string_has_text(profile->console_path_name)) {
     set_result(result, BOARD_PROFILE_ERR_CONSOLE_PATH_NAME, -1, -1, -1);
     return false;
   }
@@ -123,9 +116,9 @@ bool board_profile_validate(const board_profile_t* profile,
     return false;
   }
 
-  for (i = 0; i < BOARD_PORT_COUNT; ++i) {
-    port = &profile->ports[i];
-    if (port->name == NULL || port->name[0] == '\0') {
+  for (int i = 0; i < BOARD_PORT_COUNT; ++i) {
+    const board_port_profile_t* port = &profile->ports[i];
+    if (!string_has_text(port->name)) {
       set_result(result, BOARD_PROFILE_ERR_PORT_NAME, i, -1, -1);
       return false;
     }
@@ -145,8 +138,7 @@ bool board_profile_validate(const board_profile_t* profile,
       return false;
     }
 
-    if (port->tx_gpio == port->rx_gpio || port->tx_gpio == port->sync_gpio ||
-        port->rx_gpio == port->sync_gpio) {
+    if (!port_pins_are_unique(port)) {
       set_result(result, BOARD_PROFILE_ERR_PORT_PINS_DUPLICATED, i,
                  port->tx_gpio, port->sync_gpio);
       return false;

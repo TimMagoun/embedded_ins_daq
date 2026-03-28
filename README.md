@@ -18,6 +18,7 @@ Python developer tooling is managed with `uv`. Formatting and pre-commit hooks a
 - shell with `shfmt`
 - Markdown with `mdformat`
 - C/C++ with `clang-format` using Google style
+- host unit tests with `gtest` orchestrated through `ctest`
 
 ## Quickstart
 
@@ -111,7 +112,7 @@ cmake --build build_host
 ctest --test-dir build_host
 ```
 
-Host test artifacts are written under `build_host/artifacts/<test_name>`.
+The host test suite uses `gtest`, with `ctest` used as the top-level runner. Host test artifacts are written under `build_host/artifacts/<test_name>`.
 
 ### 7. Flash and monitor directly
 

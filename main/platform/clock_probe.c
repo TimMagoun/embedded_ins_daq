@@ -33,6 +33,7 @@ bool clock_probe_monotonic(clock_probe_read_fn_t read_fn, void* ctx,
 
 uint64_t clock_probe_extend_low_word(uint64_t previous_extended,
                                      uint32_t next_low_word) {
+  /* Preserve the previous high word unless the low word wrapped. */
   uint64_t high_word = previous_extended & 0xffffffff00000000ULL;
   uint32_t previous_low_word = (uint32_t)(previous_extended & 0xffffffffULL);
 

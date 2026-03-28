@@ -5,11 +5,10 @@ Load this file when exact command patterns are needed.
 ## Environment Checks
 
 ```bash
-scripts/idf --version
-IDF_PATH=/home/agent/esp/esp-idf scripts/idf --version
+idf.py --version
+IDF_PATH=/home/agent/esp/esp-idf idf.py --version
 ```
 
-If `idf.py` is not found, check the repo-local `scripts/idf` wrapper and the configured `IDF_EXPORT_SCRIPT` path before changing shell startup files.
 If flashing fails with `Permission denied` on `/dev/ttyACM*` or `/dev/ttyUSB*`, treat it as a host access problem first.
 
 ## Project Discovery
@@ -21,15 +20,15 @@ rg --files -g 'CMakeLists.txt' -g 'sdkconfig*' -g 'partitions.csv' -g 'idf_compo
 ## Build
 
 ```bash
-scripts/idf build
-scripts/idf app
-scripts/idf reconfigure
-scripts/idf fullclean
-scripts/idf fullclean build
-scripts/idf set-target esp32
-scripts/idf set-target esp32s3
-scripts/idf set-target esp32c6
-scripts/idf set-target esp32p4
+idf.py build
+idf.py app
+idf.py reconfigure
+idf.py fullclean
+idf.py fullclean build
+idf.py set-target esp32
+idf.py set-target esp32s3
+idf.py set-target esp32c6
+idf.py set-target esp32p4
 ```
 
 ## Flash And Monitor
@@ -43,11 +42,11 @@ ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
 Common flows:
 
 ```bash
-scripts/idf -p /dev/ttyUSB0 flash
-scripts/idf -p /dev/ttyUSB0 monitor
-scripts/idf -p /dev/ttyUSB0 flash monitor
-scripts/idf -p /dev/ttyUSB0 app-flash monitor
-scripts/idf -p /dev/ttyUSB0 -b 460800 flash
+idf.py -p /dev/ttyUSB0 flash
+idf.py -p /dev/ttyUSB0 monitor
+idf.py -p /dev/ttyUSB0 flash monitor
+idf.py -p /dev/ttyUSB0 app-flash monitor
+idf.py -p /dev/ttyUSB0 -b 460800 flash
 ```
 
 Useful monitor controls:
@@ -61,14 +60,14 @@ Useful monitor controls:
 Serial-first debugging:
 
 ```bash
-scripts/idf -p /dev/ttyUSB0 monitor
+idf.py -p /dev/ttyUSB0 monitor
 ```
 
 Typical JTAG flow:
 
 ```bash
 openocd -f board/<board-config>.cfg
-scripts/idf gdb
+idf.py gdb
 ```
 
 If `idf.py gdb` is unavailable in the environment, use the toolchain GDB on the built ELF and connect to OpenOCD manually.
@@ -76,7 +75,7 @@ If `idf.py gdb` is unavailable in the environment, use the toolchain GDB on the 
 ## Testing
 
 ```bash
-scripts/idf test
+idf.py test
 ```
 
 Use only when the project includes ESP-IDF unit/integration test targets.
@@ -84,9 +83,9 @@ Use only when the project includes ESP-IDF unit/integration test targets.
 ## Clean Rebuild After Configuration Drift
 
 ```bash
-scripts/idf fullclean
-scripts/idf set-target <chip>
-scripts/idf build
+idf.py fullclean
+idf.py set-target <chip>
+idf.py build
 ```
 
 ## High-Risk Commands
