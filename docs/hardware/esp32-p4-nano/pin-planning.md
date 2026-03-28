@@ -2,7 +2,7 @@
 
 **Purpose:** Working checklist for assigning pins and verifying how the `ESP32-P4-NANO` interfaces with onboard and external peripherals.
 **Use This For:** Carrier-board planning, firmware bring-up, connector mapping, and avoiding board-level pin conflicts.
-**Companion Reference:** [ESP32_P4_NANO_capabilities.md](/Users/timmagoun/Projects/embedded_ins_daq/ESP32_P4_NANO_capabilities.md)
+**Companion Reference:** [capabilities.md](/home/agent/workspace/embedded_ins_daq/docs/hardware/esp32-p4-nano/capabilities.md)
 
 ______________________________________________________________________
 

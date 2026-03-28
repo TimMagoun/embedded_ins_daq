@@ -26,7 +26,19 @@
 - **Port Diagnostics:** If access fails, accurately diagnose whether it's a busy port, permission issue, wrong boot mode, or firmware fault before modifying code.
 - **Hardware-First Validation:** If a device is present and firmware behavior is altered, perform an on-device smoke run. Do not rely solely on host tests if hardware validation is feasible.
 
-## 4. Coding Standards & Architecture
+## 4. Repository Documentation Structure
+
+- **Top-Level Rule:** Keep the repo root limited to project-entry docs such as `README.md` and agent instructions. Do not leave board reference notes or pin-planning docs at the root.
+- **Superpowers Artifacts:** Keep session-oriented specs and implementation plans under `docs/superpowers/` using the existing split:
+  - `docs/superpowers/specs/` for design/spec documents
+  - `docs/superpowers/plans/` for implementation plans
+- **Hardware References:** Keep reusable board knowledge under `docs/hardware/<board-name>/`.
+- **ESP32-P4 Nano References:** Store Nano-specific capability and pin-planning documents in `docs/hardware/esp32-p4-nano/`, including:
+  - `docs/hardware/esp32-p4-nano/capabilities.md`
+  - `docs/hardware/esp32-p4-nano/pin-planning.md`
+- **Intent Split:** Use `docs/superpowers` for generated workflow output and `docs/hardware` for stable engineering reference material that should survive across planning sessions.
+
+## 5. Coding Standards & Architecture
 
 - **Strict Error Handling:** All functions interacting with hardware/HAL must return `esp_err_t`. Never fail silently. Use `ESP_ERROR_CHECK()` during init, but handle/log errors gracefully in runtime loops.
 - **Logging:** Use standard ESP-IDF logging (`ESP_LOGI`, `ESP_LOGE`, etc.) with a static `TAG`. **Never** use raw `printf`.
@@ -34,13 +46,13 @@
 - **Documentation:** All public macros, structs, and functions in `main/include` require a short, contract-focused header comment. Non-trivial logic in `.c` files requires inline explanation.
 - **Decoupling:** Separate test scaffolding and verification code from production interfaces.
 
-## 5. ISR (Interrupt Service Routine) Strict Rules
+## 6. ISR (Interrupt Service Routine) Strict Rules
 
 - Functions called from an ISR **MUST** have the `IRAM_ATTR` attribute.
 - **NEVER** use blocking functions, logging macros (`ESP_LOGx`), or float math inside an ISR.
 - Use only `_FromISR` FreeRTOS API variants.
 
-## 6. Testing & Review Expectations
+## 7. Testing & Review Expectations
 
 - **Coverage:** Unit tests are mandatory for new logic unless waived. Decouple algorithms from the HAL to allow native unit testing.
 - **Host vs. Device:** Use `gtest` (via `cmake`/`ctest`) for host tests under `host_tests`. Use Unity for on-device firmware tests.
