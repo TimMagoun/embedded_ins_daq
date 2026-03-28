@@ -1,40 +1,77 @@
-#include <inttypes.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 
+#include "board_profile.h"
+#include "clock_probe.h"
+#include "clock_service.h"
 #include "esp_err.h"
-#include "esp_flash.h"
 #include "esp_log.h"
-#include "esp_psram.h"
-#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "platform_iram.h"
+#include "runtime_banner.h"
 
 static const char* TAG = "embedded_ins_daq";
+static const uint32_t kClockSmokeTaskDelayMs = 50U;
+static const uint32_t kClockSmokeMaxAttempts = 20U;
+
+static PLATFORM_INTERNAL_RAM clock_service_isr_smoke_state_t s_isr_smoke_state;
+
+static uint64_t app_clock_probe_read(void* ctx) {
+  (void)ctx;
+  return clock_now_us();
+}
+
+static bool run_clock_monotonicity_smoke(void) {
+  uint32_t attempt;
+  uint64_t last_sample = 0;
+
+  if (!clock_probe_monotonic(app_clock_probe_read, NULL, 64U, &last_sample)) {
+    ESP_LOGE(TAG, "Clock monotonicity probe failed in task context");
+    return false;
+  }
+
+  ESP_LOGI(TAG, "Clock monotonicity probe passed: last_sample_us=%llu",
+           (unsigned long long)last_sample);
+
+  for (attempt = 0; attempt < kClockSmokeMaxAttempts; ++attempt) {
+    if (clock_isr_smoke_ready(&s_isr_smoke_state, 3U)) {
+      ESP_LOGI(TAG, "Clock ISR smoke passed: isr_samples=%lu last_isr_us=%llu",
+               (unsigned long)s_isr_smoke_state.isr_sample_count,
+               (unsigned long long)s_isr_smoke_state.last_isr_timestamp_us);
+      return true;
+    }
+    vTaskDelay(pdMS_TO_TICKS(kClockSmokeTaskDelayMs));
+  }
+
+  ESP_LOGE(TAG, "Clock ISR smoke timed out: isr_samples=%lu",
+           (unsigned long)s_isr_smoke_state.isr_sample_count);
+  return false;
+}
 
 void app_main(void) {
-  uint32_t flash_size = 0;
-  esp_err_t flash_err = esp_flash_get_size(NULL, &flash_size);
+  const board_profile_t* board = board_profile_active();
+  board_profile_validation_result_t validation = {0};
 
-  ESP_LOGI(TAG, "Minimal ESP-IDF app starting on %s", CONFIG_IDF_TARGET);
-  ESP_LOGI(TAG, "Free heap: %lu bytes",
-           (unsigned long)esp_get_free_heap_size());
-  if (flash_err == ESP_OK) {
-    ESP_LOGI(TAG, "Detected NOR flash: %" PRIu32 " MB",
-             flash_size / (1024 * 1024));
+  ESP_ERROR_CHECK(clock_init());
+  if (!board_profile_validate(board, &validation)) {
+    ESP_LOGE(TAG, "Board profile validation failed: %s",
+             board_profile_validation_message(validation.code));
+    ESP_LOGE(TAG, "Failure details: port_index=%d gpio_a=%d gpio_b=%d",
+             validation.port_index, validation.gpio_a, validation.gpio_b);
+    abort();
+  }
+
+  runtime_banner_log_startup(board);
+  ESP_ERROR_CHECK(clock_start_isr_smoke(&s_isr_smoke_state));
+
+  if (run_clock_monotonicity_smoke()) {
+    runtime_banner_log_ready("clock_monotonicity");
   } else {
-    ESP_LOGW(TAG, "Failed to query flash size: %s", esp_err_to_name(flash_err));
+    ESP_LOGE(TAG, "Clock monotonicity smoke failed");
   }
 
-  if (esp_psram_is_initialized()) {
-    ESP_LOGI(TAG, "Detected PSRAM: %u MB",
-             (unsigned)(esp_psram_get_size() / (1024 * 1024)));
-  } else {
-    ESP_LOGW(TAG, "PSRAM is not initialized");
-  }
-
-  ESP_LOGI(TAG, "READY: board_smoke");
-
-  while (1) {
-    ESP_LOGI(TAG, "Heartbeat");
-    vTaskDelay(pdMS_TO_TICKS(1000));
-  }
+  runtime_banner_start_health_task();
+  runtime_banner_log_ready("platform_smoke");
 }

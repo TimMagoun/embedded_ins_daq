@@ -86,9 +86,9 @@ Checklist:
 
 Record mapping:
 
-- console UART:
-- sensor port 1 UART:
-- sensor port 2 UART:
+- console UART: `UART0` via onboard `USB-C` console path, provisional firmware GPIO view `TX=37`, `RX=38`
+- sensor port 1 UART: provisional `UART1`, `TX=20`, `RX=21`
+- sensor port 2 UART: provisional `UART2`, `TX=23`, `RX=24`
 - sensor port 3 UART:
 - sensor port 4 UART:
 
@@ -117,8 +117,8 @@ Checklist:
 
 Record mapping:
 
-- port 1 SYNC:
-- port 2 SYNC:
+- port 1 SYNC: provisional `GPIO22`
+- port 2 SYNC: provisional `GPIO25`
 - port 3 SYNC:
 - port 4 SYNC:
 
@@ -148,7 +148,7 @@ Checklist:
 
 Record details:
 
-- SDMMC slot used:
+- SDMMC slot used: provisional `SDMMC_HOST_SLOT_1` on the onboard TF slot
 - card detect available:
 - expected filesystem:
 - tested card types:
@@ -176,7 +176,7 @@ Checklist:
 
 Record details:
 
-- default console path:
+- default console path: onboard `USB-C` to `UART0`
 - alternate console path:
 
 ## 4.5 User Controls and Indicators
