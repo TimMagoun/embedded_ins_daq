@@ -1,2 +1,11 @@
-idf_component_register(SRCS "app_main.c"
-                    INCLUDE_DIRS "")
+idf_component_register(
+    SRCS
+        "app_main.c"
+        "platform/board_profile.c"
+        "platform/clock_probe.c"
+        "platform/clock_smoke.c"
+        "platform/clock_service.c"
+        "platform/runtime_banner.c"
+    INCLUDE_DIRS
+        "include"
+)

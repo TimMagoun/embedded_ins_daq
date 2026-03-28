@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Review"
+  short_description: "Review or address pull request feedback"
+  default_prompt: "Use $pr-review to inspect a pull request or review comments for correctness, architecture, edge cases, style, tests, and documentation."
