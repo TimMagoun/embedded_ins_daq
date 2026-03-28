@@ -99,7 +99,7 @@ The project defaults in [sdkconfig.defaults](/home/agent/workspace/embedded_ins_
 idf.py build
 ```
 
-The smoke firmware emits a clear ready banner on `UART0`, which remains the default console and panic-output path during bring-up.
+The bring-up firmware emits clear ready banners on `UART0`, which remains the default console and panic-output path during bring-up.
 
 ### 6. Run the host smoke test
 
@@ -133,19 +133,25 @@ Use the repo tool when you want a reusable, non-interactive log file while still
 
 ```bash
 idf.py -p /dev/ttyACM0 flash
-python3 -m tools.monitor --ready-banner "READY: board_smoke"
+python3 -m tools.monitor --ready-banner "READY: platform_smoke"
 ```
 
 By default this uses `BOARD_PORT` from `esp.env` and writes the latest monitor log to `artifacts/latest/device/monitor.log`.
 It assumes `source ./tools/setup.sh` has already been run in the current shell.
 The tool passes `--disable-auto-color` to `idf.py monitor` so the saved log stays easy to parse while the same stream remains visible in the terminal.
 
-### 9. Run the board smoke case with artifact capture
+### 9. Run the platform smoke case with artifact capture
 
 When you want a repeatable case folder with logs and copied build outputs, use:
 
 ```bash
-python3 -m tools.run_case --case board_smoke
+python3 -m tools.run_case --case platform_smoke
+```
+
+For the clock-specific bring-up check, use:
+
+```bash
+python3 -m tools.run_case --case clock_monotonicity
 ```
 
 Artifacts land in:
@@ -178,5 +184,7 @@ This keeps crash decoding non-GUI and tied to the exact built `elf`.
 - Run `source ./tools/setup.sh` in each new shell before ESP-IDF or device commands.
 - `./tools/bootstrap_env.sh` can be rerun any time after setup to revalidate the active toolchain.
 - `UART0` is reserved for console, boot logs, flashing recovery, and panic output during early bring-up.
+- `platform_smoke` is the default bring-up case name for step 2.
+- `clock_monotonicity` is a separate device-side smoke banner emitted after the hardware clock passes both task-context and interrupt-context checks.
 - `GDBStub` is enabled in the firmware configuration so interactive serial debugging remains available without requiring JTAG for this stage.
 - `PlatformIO`, Arduino, JTAG, and OpenOCD are intentionally out of scope for step 1.

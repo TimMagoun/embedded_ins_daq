@@ -24,13 +24,13 @@
 - **Probe Hardware Early:** At the start of any implementation or validation task, check whether a target board is attached on the configured `BOARD_PORT` or the expected default port such as `/dev/ttyACM0`. Do this before assuming hardware is unavailable.
 - **Default Firmware Workflow:** Prefer `idf.py set-target esp32p4`, `idf.py build`, `idf.py -p <port> flash`, and `idf.py -p <port> monitor` as the base workflow. Helper scripts are additive, not replacements for standard `idf.py`, and each helper should own one narrow responsibility.
 - **Host Tests:** Use `cmake -S host_tests -B build_host`, `cmake --build build_host`, and `ctest --test-dir build_host`. Host test artifacts land under `build_host/artifacts/<test_name>`.
-- **Device Monitor Capture:** Use `python3 -m tools.monitor --ready-banner "READY: board_smoke"` after `idf.py -p <port> flash` when you need a programmatic ready-banner wait and a serial log mirrored to both the terminal and `artifacts/latest/device/monitor.log`. Run `source ./tools/setup.sh` in the current shell first.
-- **Run Case Tool:** Use `python3 -m tools.run_case --case board_smoke` when you need deterministic artifact capture, a ready-banner timeout, and automatic copying of build outputs.
+- **Device Monitor Capture:** Use `python3 -m tools.monitor --ready-banner "READY: platform_smoke"` after `idf.py -p <port> flash` when you need a programmatic ready-banner wait and a serial log mirrored to both the terminal and `artifacts/latest/device/monitor.log`. Run `source ./tools/setup.sh` in the current shell first.
+- **Run Case Tool:** Use `python3 -m tools.run_case --case platform_smoke` when you need deterministic artifact capture, a ready-banner timeout, and automatic copying of build outputs. Use `python3 -m tools.run_case --case clock_monotonicity` for the clock-specific bring-up check.
 - **Crash Decode:** Use `./tools/decode_panic.sh --elf build/embedded_ins_daq.elf --panic-log <monitor.log>` to decode saved panic logs offline against the exact built ELF.
 - **Attached Device Assumption:** Assume a board may already be attached on `/dev/ttyACM0` when an agent starts. Before changing code for a hardware issue, check whether the port exists, whether the board can answer to `idf.py -p /dev/ttyACM0 flash` followed by `monitor.py`, and whether a previous monitor log already left useful artifacts behind.
 - **Hardware-First Validation:** If a target device is present and the task touches firmware behavior, build the firmware and attempt a hardware smoke run before concluding the work. Do not stop at host tests alone when on-device validation is feasible.
 - **Port Handling:** Do not assume `/dev/ttyACM0` is free just because it exists. If flashing or monitor access fails, distinguish between a busy port, wrong board, permissions, boot mode, and firmware faults before changing code.
-- **Current Smoke Case Convention:** Use `board_smoke` as the canonical bring-up case name. A successful run reaches the `READY: board_smoke` banner during `python3 -m tools.run_case --case board_smoke --port /dev/ttyACM0` or `python3 -m tools.monitor --ready-banner "READY: board_smoke" --port /dev/ttyACM0` after a separate flash.
+- **Current Smoke Case Convention:** Use `platform_smoke` as the canonical bring-up case name. A successful run reaches the `READY: platform_smoke` banner during `python3 -m tools.run_case --case platform_smoke --port /dev/ttyACM0` or `python3 -m tools.monitor --ready-banner "READY: platform_smoke" --port /dev/ttyACM0` after a separate flash.
 
 ## 4. Debug Outputs & Error Handling
 
@@ -43,7 +43,7 @@
 
 - **Decouple Logic:** Write core algorithms and state machines independent of ESP-IDF hardware calls (HAL). Wrap hardware interactions (I2C, SPI, GPIO) in generic interfaces so the core logic can be unit-tested natively without hardware-in-the-loop.
 - **Unit Testing:** Use the Unity test framework built into ESP-IDF for firmware tests. For host-only modules, prefer standard desktop test tooling such as `ctest` and only add `gtest` if a real need emerges beyond what the repository already uses.
-- **Current Smoke Expectation:** The current smoke firmware logs startup on the configured target, free heap, flash size, PSRAM status, `READY: board_smoke`, and then periodic `Heartbeat` lines on `UART0`.
+- **Current Smoke Expectation:** The current bring-up firmware logs firmware identity, board profile, port mappings, `READY: clock_monotonicity`, `READY: platform_smoke`, and periodic `HEALTH` lines on `UART0`.
 
 ## 6. Interrupt Service Routine (ISR) Rules
 

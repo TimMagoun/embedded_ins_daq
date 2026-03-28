@@ -63,7 +63,7 @@
 - `idf.py build`
 - `ctest --test-dir <host_build_dir>`
 - `idf.py flash monitor`
-- `python3 -m tools.run_case --case board_smoke`
+- `python3 -m tools.run_case --case platform_smoke`
 
 ## Exit Criteria
 
