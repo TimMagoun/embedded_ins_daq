@@ -27,6 +27,7 @@ GDBSTUB_PATTERN = re.compile(
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 ANSI_FRAGMENT_PATTERN = re.compile(r"\[(?:\d{1,3}(?:;\d{1,3})*)?[A-Za-z]")
 GDBSTUB_EXIT_CODE = 3
+POST_FAILURE_DRAIN_SECONDS = 1.0
 
 
 class DeviceToolError(RuntimeError):
@@ -158,6 +159,7 @@ def stream_monitor(
 ) -> MonitorResult:
     result = MonitorResult()
     deadline = None if timeout_seconds is None else time.monotonic() + timeout_seconds
+    failure_drain_deadline = None
     decoder = codecs.getincrementaldecoder("utf-8")("replace")
     search_buffer = ""
     master_fd, slave_fd = pty.openpty()
@@ -199,10 +201,20 @@ def stream_monitor(
                     search_buffer = update_state(
                         search_buffer, text, ready_banner, result
                     )
-                    if result.ready_seen or result.panic_seen or result.gdbstub_seen:
+                    if result.ready_seen:
                         break
+                    if result.panic_seen or result.gdbstub_seen:
+                        failure_drain_deadline = (
+                            time.monotonic() + POST_FAILURE_DRAIN_SECONDS
+                        )
 
                 if process.poll() is not None and not ready:
+                    break
+                if (
+                    not ready
+                    and failure_drain_deadline is not None
+                    and time.monotonic() >= failure_drain_deadline
+                ):
                     break
         finally:
             tail = decoder.decode(b"", final=True)
