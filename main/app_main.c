@@ -23,9 +23,17 @@
 #include "session_controller.h"
 #include "status_log_pipeline.h"
 #include "storage_service.h"
+#include "sync_capture_service.h"
+#include "sync_hal_adapter.h"
 #include "uart_capture_service.h"
 #include "uart_hal_adapter.h"
 
+#if __has_include("driver/gpio.h")
+#include "driver/gpio.h"
+#define APP_MAIN_HAS_GPIO_DRIVER 1
+#else
+#define APP_MAIN_HAS_GPIO_DRIVER 0
+#endif
 
 static const char* TAG = "embedded_ins_daq";
 static const uint32_t kClockSmokeTaskDelayMs = 50U;
@@ -41,13 +49,27 @@ static const uint32_t kSessionId = 1U;
   (((921600U * UART_CAPTURE_RETENTION_MS) + 9999U) / 10000U)
 #define SESSION_PIPELINE_BYTES 4096U
 #define STATUS_PIPELINE_BYTES 512U
+#define SYNC_EVENT_QUEUE_CAPACITY 64U
 
 static PLATFORM_INTERNAL_RAM clock_smoke_isr_state_t s_isr_smoke_state;
 static PLATFORM_INTERNAL_RAM uint8_t
     s_uart_capture_rings[BOARD_PORT_COUNT][UART_CAPTURE_RING_BYTES];
 static PLATFORM_INTERNAL_RAM uint8_t s_session_pipeline[SESSION_PIPELINE_BYTES];
+static PLATFORM_INTERNAL_RAM sync_edge_event_t
+    s_sync_event_queue[SYNC_EVENT_QUEUE_CAPACITY];
 static char s_status_pipeline[STATUS_PIPELINE_BYTES];
 static storage_service_t s_storage_service;
+
+typedef struct {
+  port_id_t port_id;
+  int gpio_num;
+  bool installed;
+} sync_isr_context_t;
+
+static PLATFORM_INTERNAL_RAM sync_isr_context_t
+    s_sync_contexts[BOARD_PORT_COUNT];
+static sync_capture_service_t s_sync_capture_service;
+static bool s_sync_isr_service_installed;
 
 typedef struct {
   port_id_t port_id;
@@ -67,7 +89,9 @@ static status_log_pipeline_t s_status_pipeline_service;
 static record_buffer_t s_session_start_record;
 static session_info_t s_active_session_info;
 
-static const char* select_capture_case_name(const runtime_config_t* config) {
+static const char* select_capture_case_name(const runtime_config_t* config,
+                                            size_t sync_events_captured,
+                                            size_t fault_events_seen) {
   size_t enabled_ports = 0U;
 
   if (config == NULL) {
@@ -80,11 +104,29 @@ static const char* select_capture_case_name(const runtime_config_t* config) {
     }
   }
 
+  if (enabled_ports >= 4U && fault_events_seen > 0U) {
+    return "four_port_overload_faults";
+  }
+  if (sync_events_captured > 0U) {
+    return "sync_input_capture";
+  }
+  if (enabled_ports >= 4U) {
+    return "four_port_stress";
+  }
   if (enabled_ports >= 2U) {
     return "two_port_reference_capture";
   }
   return "port1_sd_logger";
 }
+
+#if APP_MAIN_HAS_GPIO_DRIVER
+static void PLATFORM_ISR_ATTR sync_input_isr(void* arg) {
+  const sync_isr_context_t* context = (const sync_isr_context_t*)arg;
+  const int level = gpio_get_level((gpio_num_t)context->gpio_num);
+  (void)sync_capture_service_publish_isr(
+      &s_sync_capture_service, context->port_id, clock_now_isr(), level != 0);
+}
+#endif
 
 static esp_err_t append_fault_record(binary_log_pipeline_t* pipeline,
                                      port_id_t port_id,
@@ -297,6 +339,100 @@ static void deinit_reference_ports(reference_capture_port_t* ports,
   }
 }
 
+static esp_err_t drain_sync_capture(sync_capture_service_t* service,
+                                    binary_log_pipeline_t* pipeline,
+                                    storage_service_t* storage,
+                                    session_controller_t* controller) {
+  esp_err_t status = ESP_OK;
+
+  if (service == NULL || pipeline == NULL || storage == NULL ||
+      controller == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  status =
+      sync_capture_service_drain(service, pipeline, &controller->fault_manager);
+  if (status == ESP_ERR_NO_MEM) {
+    status = drain_binary_pipeline_to_storage(storage, pipeline);
+    if (status == ESP_OK) {
+      status = sync_capture_service_drain(service, pipeline,
+                                          &controller->fault_manager);
+    }
+  }
+
+  if (fault_manager_has_fatal_fault(&controller->fault_manager)) {
+    controller->state = SESSION_FAULTED;
+  }
+
+  return status;
+}
+
+static esp_err_t configure_sync_capture(const board_profile_t* board,
+                                        const runtime_config_t* config) {
+  size_t sync_port_count = 0U;
+
+  if (board == NULL || config == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  memset(s_sync_contexts, 0, sizeof(s_sync_contexts));
+  ESP_ERROR_CHECK(sync_capture_service_init(
+      &s_sync_capture_service, s_sync_event_queue, SYNC_EVENT_QUEUE_CAPACITY));
+
+#if APP_MAIN_HAS_GPIO_DRIVER
+  for (size_t i = 0; i < config->port_count; ++i) {
+    const runtime_port_config_t* port = &config->ports[i];
+
+    if (!port->enabled || !board->ports[i].enabled ||
+        port->timing_mode != PORT_TIMING_SYNC_INPUT ||
+        port->sync_edge_mode == SYNC_EDGE_NONE) {
+      continue;
+    }
+
+    if (!s_sync_isr_service_installed) {
+      esp_err_t isr_err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
+      if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
+        return isr_err;
+      }
+      s_sync_isr_service_installed = true;
+    }
+
+    ESP_ERROR_CHECK(sync_hal_adapter_configure_input((port_id_t)(i + 1U),
+                                                     port->sync_edge_mode));
+    s_sync_contexts[sync_port_count].port_id = (port_id_t)(i + 1U);
+    s_sync_contexts[sync_port_count].gpio_num = board->ports[i].sync_gpio;
+    ESP_ERROR_CHECK(gpio_isr_handler_add((gpio_num_t)board->ports[i].sync_gpio,
+                                         sync_input_isr,
+                                         &s_sync_contexts[sync_port_count]));
+    s_sync_contexts[sync_port_count].installed = true;
+    sync_port_count += 1U;
+  }
+#else
+  for (size_t i = 0; i < config->port_count; ++i) {
+    if (config->ports[i].enabled &&
+        config->ports[i].timing_mode == PORT_TIMING_SYNC_INPUT) {
+      return ESP_ERR_NOT_SUPPORTED;
+    }
+  }
+#endif
+
+  return ESP_OK;
+}
+
+static void deinit_sync_capture(void) {
+#if APP_MAIN_HAS_GPIO_DRIVER
+  for (size_t i = 0; i < BOARD_PORT_COUNT; ++i) {
+    if (!s_sync_contexts[i].installed) {
+      continue;
+    }
+
+    (void)gpio_isr_handler_remove((gpio_num_t)s_sync_contexts[i].gpio_num);
+    sync_hal_adapter_deinit_input(s_sync_contexts[i].port_id);
+    s_sync_contexts[i].installed = false;
+  }
+#endif
+}
+
 static void surface_capture_faults(reference_capture_port_t* ports,
                                    size_t port_count,
                                    session_controller_t* controller,
@@ -382,6 +518,13 @@ static esp_err_t run_reference_sd_logger_case(const board_profile_t* board,
   status =
       drain_status_pipeline_to_storage(storage, &s_status_pipeline_service);
   if (status != ESP_OK) {
+    return status;
+  }
+
+  status = configure_sync_capture(board, config);
+  if (status != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to configure sync capture: %s",
+             esp_err_to_name(status));
     return status;
   }
 
@@ -498,6 +641,11 @@ static esp_err_t run_reference_sd_logger_case(const board_profile_t* board,
       break;
     }
 
+    status = drain_sync_capture(&s_sync_capture_service, &s_binary_pipeline,
+                                storage, controller);
+    if (status != ESP_OK) {
+      break;
+    }
   }
 
   for (size_t i = 0; i < active_port_count && status == ESP_OK; ++i) {
@@ -514,6 +662,7 @@ static esp_err_t run_reference_sd_logger_case(const board_profile_t* board,
     surface_capture_faults(s_reference_ports, active_port_count, controller,
                            &s_binary_pipeline);
     deinit_reference_ports(s_reference_ports, active_port_count);
+    deinit_sync_capture();
     if (drain_binary_pipeline_to_storage(storage, &s_binary_pipeline) !=
         ESP_OK) {
       emit_session_artifact(&s_binary_pipeline);
@@ -523,6 +672,7 @@ static esp_err_t run_reference_sd_logger_case(const board_profile_t* board,
   }
 
   deinit_reference_ports(s_reference_ports, active_port_count);
+  deinit_sync_capture();
 
   for (size_t i = 0; i < active_port_count; ++i) {
     if (s_reference_ports[i].total_bytes > 0U) {
@@ -543,6 +693,10 @@ static esp_err_t run_reference_sd_logger_case(const board_profile_t* board,
         drain_status_pipeline_to_storage(storage, &s_status_pipeline_service);
   }
   if (status == ESP_OK) {
+    status = drain_sync_capture(&s_sync_capture_service, &s_binary_pipeline,
+                                storage, controller);
+  }
+  if (status == ESP_OK) {
     status = drain_binary_pipeline_to_storage(storage, &s_binary_pipeline);
   }
   if (status != ESP_OK) {
@@ -560,7 +714,9 @@ static esp_err_t run_reference_sd_logger_case(const board_profile_t* board,
   emit_file_artifact_hex("session.bin", storage_service_binary_path(storage));
   emit_file_artifact_hex("status.log", storage_service_status_path(storage));
   emit_file_artifact_hex("config.txt", storage_service_config_path(storage));
-  runtime_banner_log_ready(select_capture_case_name(config));
+  runtime_banner_log_ready(select_capture_case_name(
+      config, s_sync_capture_service.drained_events,
+      fault_manager_event_count(&controller->fault_manager)));
   return ESP_OK;
 }
 
@@ -574,6 +730,9 @@ static runtime_config_source_t default_runtime_config_source(
     source.ports[i].baud_rate = (i < 2U) ? 9600 : 921600;
     source.ports[i].timing_mode = PORT_TIMING_DISABLED;
   }
+  source.ports[0].timing_mode = PORT_TIMING_SYNC_INPUT;
+  source.ports[0].sync_edge_mode = SYNC_EDGE_RISING;
+  source.ports[0].enable_sync_input = true;
 
   return source;
 }

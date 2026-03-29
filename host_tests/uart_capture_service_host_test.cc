@@ -125,4 +125,58 @@ TEST(UartCaptureServiceTest, EmitsOverflowFaultWhenRingBufferFills) {
   EXPECT_EQ(fault.severity, FAULT_SEVERITY_RECOVERABLE);
 }
 
+TEST(UartCaptureServiceTest,
+     SizesRetentionForFiveHundredMillisecondsAtConfiguredBaud) {
+  EXPECT_EQ(uart_capture_required_retention_bytes(9600U, 500U), 480U);
+  EXPECT_EQ(uart_capture_required_retention_bytes(921600U, 500U), 46080U);
+}
+
+TEST(UartCaptureServiceTest, OverflowOnOnePortDoesNotCorruptAnotherPort) {
+  std::array<uint8_t, 1024> pipeline_storage = {};
+  std::array<uint8_t, 4> small_ring = {};
+  std::array<uint8_t, 32> healthy_ring = {};
+  binary_log_pipeline_t pipeline = {};
+  uart_capture_service_t overflowing = {};
+  uart_capture_service_t healthy = {};
+  record_buffer_t record = {};
+  fault_event_t fault = {};
+  const std::array<uint8_t, 5> overflow_bytes = {1, 2, 3, 4, 5};
+  const std::array<uint8_t, 3> healthy_bytes = {0xa1, 0xa2, 0xa3};
+
+  binary_log_pipeline_init(&pipeline, pipeline_storage.data(),
+                           pipeline_storage.size());
+  ASSERT_EQ(
+      uart_capture_service_init(&overflowing, PORT_ID_1, small_ring.data(),
+                                small_ring.size(), &pipeline),
+      ESP_OK);
+  ASSERT_EQ(uart_capture_service_init(&healthy, PORT_ID_2, healthy_ring.data(),
+                                      healthy_ring.size(), &pipeline),
+            ESP_OK);
+
+  EXPECT_EQ(uart_capture_service_on_rx_bytes(&overflowing, PORT_ID_1, 100U,
+                                             overflow_bytes.data(),
+                                             overflow_bytes.size()),
+            ESP_ERR_NO_MEM);
+  ASSERT_TRUE(uart_capture_service_take_pending_fault(&overflowing, &fault));
+  EXPECT_EQ(fault.code, FAULT_CODE_STORAGE_BACKPRESSURE);
+
+  ASSERT_EQ(uart_capture_service_on_rx_bytes(&healthy, PORT_ID_2, 200U,
+                                             healthy_bytes.data(),
+                                             healthy_bytes.size()),
+            ESP_OK);
+  ASSERT_EQ(uart_capture_service_publish_pending(&healthy, &record), ESP_OK);
+
+  const binary_record_header_t header =
+      CopyStructAt<binary_record_header_t>(record.bytes, record.length, 0U);
+  const uart_data_record_payload_prefix_t prefix =
+      CopyStructAt<uart_data_record_payload_prefix_t>(
+          record.bytes, record.length, sizeof(header));
+
+  EXPECT_EQ(header.source_id, PORT_ID_2);
+  EXPECT_EQ(header.timestamp_us, 200U);
+  EXPECT_EQ(prefix.data_length, healthy_bytes.size());
+  EXPECT_EQ(0, std::memcmp(record.bytes + sizeof(header) + sizeof(prefix),
+                           healthy_bytes.data(), healthy_bytes.size()));
+}
+
 }  // namespace
