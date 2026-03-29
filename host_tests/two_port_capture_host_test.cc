@@ -115,4 +115,53 @@ TEST(TwoPortCaptureTest, SupportsIndependentBaudRatesPerPort) {
   EXPECT_EQ(error, RUNTIME_CONFIG_ERROR_NONE);
 }
 
+TEST(TwoPortCaptureTest, SupportsFourPortCaptureAlongsideSyncEvents) {
+  std::array<uint8_t, 2048> pipeline_storage = {};
+  std::array<std::array<uint8_t, 32>, 4> port_rings = {};
+  std::array<std::array<uint8_t, 2>, 4> port_bytes = {{
+      {0x10, 0x11},
+      {0x20, 0x21},
+      {0x30, 0x31},
+      {0x40, 0x41},
+  }};
+  std::array<uart_capture_service_t, 4> capture = {};
+  std::array<record_buffer_t, 4> records = {};
+  std::array<sync_edge_event_t, 4> sync_queue = {};
+  binary_log_pipeline_t pipeline = {};
+  sync_capture_service_t sync_service = {};
+  fault_manager_t faults = {};
+
+  binary_log_pipeline_init(&pipeline, pipeline_storage.data(),
+                           pipeline_storage.size());
+  fault_manager_init(&faults);
+  ASSERT_EQ(sync_capture_service_init(&sync_service, sync_queue.data(),
+                                      sync_queue.size()),
+            ESP_OK);
+
+  for (size_t i = 0; i < capture.size(); ++i) {
+    ASSERT_EQ(uart_capture_service_init(&capture[i], (port_id_t)(i + 1U),
+                                        port_rings[i].data(),
+                                        port_rings[i].size(), &pipeline),
+              ESP_OK);
+    ASSERT_EQ(uart_capture_service_on_rx_bytes(
+                  &capture[i], (port_id_t)(i + 1U), 1000U + (i * 100U),
+                  port_bytes[i].data(), port_bytes[i].size()),
+              ESP_OK);
+    ASSERT_EQ(uart_capture_service_publish_pending(&capture[i], &records[i]),
+              ESP_OK);
+  }
+
+  ASSERT_EQ(
+      sync_capture_service_publish_isr(&sync_service, PORT_ID_4, 1500U, true),
+      ESP_OK);
+  ASSERT_EQ(sync_capture_service_drain(&sync_service, &pipeline, &faults),
+            ESP_OK);
+
+  EXPECT_EQ(binary_log_pipeline_pending_bytes(&pipeline),
+            records[0].length + records[1].length + records[2].length +
+                records[3].length + sizeof(binary_record_header_t) +
+                sizeof(sync_edge_record_payload_t));
+  EXPECT_EQ(fault_manager_event_count(&faults), 0U);
+}
+
 }  // namespace
