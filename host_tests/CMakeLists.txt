@@ -84,6 +84,8 @@ target_link_libraries(uart_capture_service_host_test PRIVATE GTest::gtest_main)
 add_executable(
     storage_service_host_test
     storage_service_host_test.cc
+    ../main/control/fault_manager.c
+    ../main/control/runtime_config.c
     ../main/logging/record_builder.c
     ../main/storage/storage_service.c
 )
