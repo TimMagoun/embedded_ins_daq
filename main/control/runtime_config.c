@@ -7,6 +7,16 @@ static void set_error(runtime_config_error_t* error,
   }
 }
 
+static bool port_timing_mode_valid(port_timing_mode_t mode) {
+  return mode == PORT_TIMING_DISABLED || mode == PORT_TIMING_SYNC_INPUT ||
+         mode == PORT_TIMING_TRIGGER_OUTPUT;
+}
+
+static bool sync_edge_mode_valid(sync_edge_mode_t mode) {
+  return mode == SYNC_EDGE_NONE || mode == SYNC_EDGE_RISING ||
+         mode == SYNC_EDGE_FALLING || mode == SYNC_EDGE_BOTH;
+}
+
 esp_err_t runtime_config_validate(const runtime_config_t* config,
                                   runtime_config_error_t* error) {
   bool any_enabled = false;
@@ -29,8 +39,23 @@ esp_err_t runtime_config_validate(const runtime_config_t* config,
 
     any_enabled = true;
 
+    if (port->uart_port == BOARD_UART_UNUSED) {
+      set_error(error, RUNTIME_CONFIG_ERROR_UART_PORT_INVALID);
+      return ESP_ERR_INVALID_ARG;
+    }
+
     if (port->baud_rate <= 0) {
       set_error(error, RUNTIME_CONFIG_ERROR_BAUD_RATE_INVALID);
+      return ESP_ERR_INVALID_ARG;
+    }
+
+    if (!port_timing_mode_valid(port->timing_mode)) {
+      set_error(error, RUNTIME_CONFIG_ERROR_TIMING_MODE_INVALID);
+      return ESP_ERR_INVALID_ARG;
+    }
+
+    if (!sync_edge_mode_valid(port->sync_edge_mode)) {
+      set_error(error, RUNTIME_CONFIG_ERROR_SYNC_EDGE_MODE_INVALID);
       return ESP_ERR_INVALID_ARG;
     }
 
@@ -74,8 +99,14 @@ const char* runtime_config_error_message(runtime_config_error_t error) {
       return "runtime config port count is invalid";
     case RUNTIME_CONFIG_ERROR_NO_ENABLED_PORTS:
       return "runtime config must enable at least one port";
+    case RUNTIME_CONFIG_ERROR_UART_PORT_INVALID:
+      return "runtime config enabled port must map to a UART controller";
     case RUNTIME_CONFIG_ERROR_BAUD_RATE_INVALID:
       return "runtime config baud rate must be positive";
+    case RUNTIME_CONFIG_ERROR_TIMING_MODE_INVALID:
+      return "runtime config timing mode is invalid";
+    case RUNTIME_CONFIG_ERROR_SYNC_EDGE_MODE_INVALID:
+      return "runtime config sync edge mode is invalid";
     case RUNTIME_CONFIG_ERROR_TIMING_MODE_CONFLICT:
       return "runtime config port cannot enable sync input and trigger output "
              "together";

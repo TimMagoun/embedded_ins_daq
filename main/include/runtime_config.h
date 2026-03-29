@@ -5,19 +5,8 @@
 #include <stdint.h>
 
 #include "board_profile.h"
+#include "esp_compat.h"
 #include "runtime_types.h"
-
-#if __has_include("esp_err.h")
-#include "esp_err.h"
-#else
-#ifndef RUNTIME_ESP_ERR_COMPAT_DEFINED
-#define RUNTIME_ESP_ERR_COMPAT_DEFINED
-typedef int esp_err_t;
-#define ESP_OK 0
-#define ESP_ERR_INVALID_ARG 0x102
-#define ESP_ERR_INVALID_STATE 0x103
-#endif
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,7 +18,10 @@ typedef enum {
   RUNTIME_CONFIG_ERROR_NULL_CONFIG,
   RUNTIME_CONFIG_ERROR_PORT_COUNT_INVALID,
   RUNTIME_CONFIG_ERROR_NO_ENABLED_PORTS,
+  RUNTIME_CONFIG_ERROR_UART_PORT_INVALID,
   RUNTIME_CONFIG_ERROR_BAUD_RATE_INVALID,
+  RUNTIME_CONFIG_ERROR_TIMING_MODE_INVALID,
+  RUNTIME_CONFIG_ERROR_SYNC_EDGE_MODE_INVALID,
   RUNTIME_CONFIG_ERROR_TIMING_MODE_CONFLICT,
   RUNTIME_CONFIG_ERROR_TRIGGER_PULSE_WIDTH_INVALID,
 } runtime_config_error_t;
