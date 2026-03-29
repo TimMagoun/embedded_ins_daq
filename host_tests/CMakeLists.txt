@@ -61,6 +61,15 @@ add_executable(
 target_include_directories(session_controller_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
 target_link_libraries(session_controller_host_test PRIVATE GTest::gtest_main)
 
+add_executable(
+    record_builder_host_test
+    record_builder_host_test.cc
+    ../main/control/runtime_config.c
+    ../main/logging/record_builder.c
+)
+target_include_directories(record_builder_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
+target_link_libraries(record_builder_host_test PRIVATE GTest::gtest_main)
+
 add_test(NAME host_smoke COMMAND host_smoke)
 set_tests_properties(
     host_smoke
@@ -74,3 +83,4 @@ gtest_discover_tests(board_ports_host_test)
 gtest_discover_tests(runtime_config_host_test)
 gtest_discover_tests(fault_manager_host_test)
 gtest_discover_tests(session_controller_host_test)
+gtest_discover_tests(record_builder_host_test)
