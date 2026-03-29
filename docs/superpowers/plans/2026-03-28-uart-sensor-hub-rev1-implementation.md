@@ -811,3 +811,4 @@ ______________________________________________________________________
 Status as of `2026-03-29` on branch `tim/exp/superpowers`:
 
 - [x] Atomic stack slice 1: runtime config contract and validation
+- [x] Atomic stack slice 2: platform config adapter and fault manager

@@ -1,6 +1,8 @@
 idf_component_register(
     SRCS
         "app_main.c"
+        "control/fault_manager.c"
+        "control/platform_config_adapter.c"
         "control/runtime_config.c"
         "platform/board_profile.c"
         "platform/clock_probe.c"
