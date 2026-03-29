@@ -79,15 +79,13 @@ target_include_directories(record_builder_host_test PRIVATE ${CMAKE_SOURCE_DIR}/
 target_link_libraries(record_builder_host_test PRIVATE GTest::gtest_main)
 
 add_executable(
-    sync_capture_service_host_test
-    sync_capture_service_host_test.cc
+    binary_log_pipeline_host_test
+    binary_log_pipeline_host_test.cc
     ../main/control/fault_manager.c
     ../main/logging/binary_log_pipeline.c
-    ../main/logging/record_builder.c
-    ../main/capture/sync_capture_service.c
 )
-target_include_directories(sync_capture_service_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
-target_link_libraries(sync_capture_service_host_test PRIVATE GTest::gtest_main)
+target_include_directories(binary_log_pipeline_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
+target_link_libraries(binary_log_pipeline_host_test PRIVATE GTest::gtest_main)
 
 add_executable(
     uart_capture_service_host_test
@@ -99,6 +97,17 @@ add_executable(
 )
 target_include_directories(uart_capture_service_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
 target_link_libraries(uart_capture_service_host_test PRIVATE GTest::gtest_main)
+
+add_executable(
+    sync_capture_service_host_test
+    sync_capture_service_host_test.cc
+    ../main/control/fault_manager.c
+    ../main/logging/binary_log_pipeline.c
+    ../main/logging/record_builder.c
+    ../main/capture/sync_capture_service.c
+)
+target_include_directories(sync_capture_service_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
+target_link_libraries(sync_capture_service_host_test PRIVATE GTest::gtest_main)
 
 add_executable(
     storage_service_host_test
@@ -118,19 +127,11 @@ add_executable(
     ../main/control/fault_manager.c
     ../main/logging/binary_log_pipeline.c
     ../main/logging/record_builder.c
+    ../main/capture/sync_capture_service.c
     ../main/capture/uart_capture_service.c
 )
 target_include_directories(two_port_capture_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
 target_link_libraries(two_port_capture_host_test PRIVATE GTest::gtest_main)
-
-add_executable(
-    binary_log_pipeline_host_test
-    binary_log_pipeline_host_test.cc
-    ../main/control/fault_manager.c
-    ../main/logging/binary_log_pipeline.c
-)
-target_include_directories(binary_log_pipeline_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
-target_link_libraries(binary_log_pipeline_host_test PRIVATE GTest::gtest_main)
 
 add_test(NAME host_smoke COMMAND host_smoke)
 set_tests_properties(
@@ -147,8 +148,8 @@ gtest_discover_tests(runtime_config_host_test)
 gtest_discover_tests(fault_manager_host_test)
 gtest_discover_tests(session_controller_host_test)
 gtest_discover_tests(record_builder_host_test)
-gtest_discover_tests(sync_capture_service_host_test)
+gtest_discover_tests(binary_log_pipeline_host_test)
 gtest_discover_tests(uart_capture_service_host_test)
+gtest_discover_tests(sync_capture_service_host_test)
 gtest_discover_tests(storage_service_host_test)
 gtest_discover_tests(two_port_capture_host_test)
-gtest_discover_tests(binary_log_pipeline_host_test)

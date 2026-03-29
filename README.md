@@ -178,8 +178,8 @@ Each device case captures:
 - the active `sdkconfig`
 - the built `elf`
 - the built `bin` images when present
-- extracted artifact files emitted by the firmware, including `session.bin` when present
 - a decoded panic report when a backtrace is found
+- extracted artifact files emitted by the firmware, including `session.bin` when present
 
 ## Crash Workflow
 
