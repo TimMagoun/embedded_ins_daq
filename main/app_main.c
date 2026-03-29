@@ -6,6 +6,7 @@
 #include "clock_smoke.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "ethernet_smoke.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "platform_iram.h"
@@ -70,6 +71,12 @@ void app_main(void) {
     runtime_banner_log_ready("clock_monotonicity");
   } else {
     ESP_LOGE(TAG, "Clock monotonicity smoke failed");
+  }
+
+  if (ethernet_smoke_run() == ESP_OK) {
+    runtime_banner_log_ready("ethernet_smoke");
+  } else {
+    ESP_LOGE(TAG, "Ethernet smoke failed");
   }
 
   runtime_banner_start_health_task();
