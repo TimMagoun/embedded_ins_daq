@@ -13,6 +13,7 @@ idf_component_register(
         "platform/clock_smoke.c"
         "platform/clock_service.c"
         "platform/runtime_banner.c"
+        "storage/storage_service.c"
     INCLUDE_DIRS
         "include"
 )
