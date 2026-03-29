@@ -4,7 +4,7 @@
 
 **Goal:** Build the revision-1 boot-autonomous UART sensor hub on top of the existing ESP32-P4 bring-up baseline, adding config-driven session control, authoritative binary logging, UART capture, sync capture, trigger output, and SD-backed session artifacts.
 
-**Architecture:** Use the existing codebase as input rather than ground truth. Keep the generic platform foundation that already matches the design, adapt the bring-up flow behind clearer interfaces, and allow runtime configuration to replace static board-description assumptions where needed. Reuse the earlier `implementation_plan/` stage order where it still matches the design, but explicitly separate stable platform services from provisional bring-up wiring in `main/app_main.c` and related modules.
+**Architecture:** Use the existing codebase as input rather than ground truth. Keep the generic platform foundation that already matches the design, but simplify the single-board bring-up path so one fixed hardware map and one runtime configuration layer are authoritative. Reuse the earlier `implementation_plan/` stage order where it still matches the design, but remove compatibility layers that only existed to model multiple boards or partially wired ports.
 
 **Tech Stack:** ESP-IDF 5.3+, C17 firmware, FreeRTOS, ESP32-P4 UART/GPIO/SDMMC drivers, host `gtest` via CMake/CTest, Python helper tooling under `tools/`
 
@@ -15,13 +15,13 @@ ______________________________________________________________________
 The current codebase already provides this platform baseline, which should be evaluated as the starting point for this plan:
 
 - `main/app_main.c`
-- `main/include/board_profile.h`
+- `main/include/board_ports.h`
 - `main/include/clock_probe.h`
 - `main/include/clock_service.h`
 - `main/include/clock_smoke.h`
 - `main/include/platform_iram.h`
 - `main/include/runtime_banner.h`
-- `main/platform/board_profile.c`
+- `main/platform/board_ports.c`
 - `main/platform/clock_service.c`
 - `main/platform/clock_probe.c`
 - `main/platform/clock_smoke.c`
@@ -29,7 +29,7 @@ The current codebase already provides this platform baseline, which should be ev
 - `main/CMakeLists.txt`
 - `host_tests/CMakeLists.txt`
 - `host_tests/clock_host_test.cc`
-- `host_tests/board_profile_host_test.cc`
+- `host_tests/board_ports_host_test.cc`
 - `tools/bootstrap_env.sh`
 - `README.md`
 
@@ -41,8 +41,8 @@ Supporting repo baseline that remains in scope:
 Evidence as of `2026-03-28`:
 
 - host suite passes with `cmake -S host_tests -B build_host && cmake --build build_host && ctest --test-dir build_host --output-on-failure`
-- `app_main` already initializes the clock service, validates the active board profile, starts the ISR clock smoke path, emits `READY: clock_monotonicity`, starts the periodic health banner task, and emits `READY: platform_smoke`
-- the host baseline already covers monotonic clock helpers and board-profile validation invariants
+- `app_main` already initializes the clock service, starts the ISR clock smoke path, emits `READY: clock_monotonicity`, starts the periodic health banner task, and emits `READY: platform_smoke`
+- the host baseline already covers monotonic clock helpers and fixed board-port mapping invariants
 - `README.md` and `tools/bootstrap_env.sh` already define the setup, validation, host-test, and platform-smoke workflow that later tasks must extend instead of replacing
 - no config/session/fault, record-pipeline, UART capture, sync, trigger, or SD modules exist yet
 
@@ -50,23 +50,23 @@ Evidence as of `2026-03-28`:
 
 This plan does not assume every existing implementation choice should survive unchanged. Use these categories when implementing revision 1:
 
-- keep: generic platform foundations that remain valid regardless of how runtime configuration is loaded, especially clock primitives, clock probe logic, clock smoke coverage, the host-test harness shape, and board-profile validation logic that is still useful as hardware-capability validation
+- keep: generic platform foundations that remain valid regardless of how runtime configuration is loaded, especially clock primitives, clock probe logic, clock smoke coverage, the host-test harness shape, and the fixed board-port hardware map
 - adjust: modules that are useful but currently too tied to bring-up semantics, especially `main/app_main.c`, runtime ready banners, and startup sequencing; these should become thin integration points around the session-control and storage boot path
-- replace when revision-1 interfaces are ready: assumptions that make static board description the authority for active session behavior; runtime configuration loaded from SD or another control surface should become the canonical source for per-session enablement, baud rates, timing mode, and trigger or sync parameters
+- replace when revision-1 interfaces are ready: assumptions that make a second board-capability layer necessary; runtime configuration loaded from SD or another control surface should be the canonical source for per-session enablement, baud rates, timing mode, and trigger or sync parameters
 
 The key boundary is:
 
-- hardware capability description may remain platform-owned
-- session behavior must become runtime-config owned
-- the interface between them must be explicit so future config sources such as SD files or a web control plane can feed the same validated runtime contract without reworking the capture or logging stack
+- fixed board wiring remains platform-owned
+- session behavior remains runtime-config owned
+- future config sources such as SD files or a web control plane should feed the validated runtime contract directly, without a board-capability merge step
 
 ## Scope Alignment
 
 This plan intentionally covers the implementation-plan stages that still match the revision-1 design:
 
 - fully inherited: `01_development_environment_and_debug`, `02_platform_bring_up_and_clock`
-- selectively inherited from the current baseline: clock and board-validation primitives, the existing host-test harness, and bootstrap workflow documentation
-- intentionally revisited from the current baseline: startup flow in `app_main`, ready-banner semantics, and the role of `board_profile_t` once runtime configuration exists
+- selectively inherited from the current baseline: clock primitives, the existing host-test harness, and bootstrap workflow documentation
+- intentionally revisited from the current baseline: startup flow in `app_main`, ready-banner semantics, and the fixed board-port mapping once runtime configuration exists
 - implemented by this plan: `03_config_session_and_faults` through `10_trigger_output`
 - partially implemented by this plan: `12_observability_local_control_and_soak`
 
@@ -103,11 +103,10 @@ Timing is a go or no-go checkpoint, not polish:
 Create or extend the runtime tree in this shape so module boundaries stay aligned with the architecture docs:
 
 - keep `main/include/clock_*.h` and the existing clock-related `main/platform/*` modules as stable platform foundation
-- treat `main/include/board_profile.h` and `main/platform/board_profile.c` as hardware-capability description that may remain in place, but do not let them remain the canonical source of session behavior once runtime config is introduced
+- treat `main/include/board_ports.h` and `main/platform/board_ports.c` as the single source of fixed board UART and GPIO wiring
 - treat `main/include/runtime_banner.h`, `main/platform/runtime_banner.c`, and `main/app_main.c` as integration surfaces that can be reshaped to fit revision-1 boot and session semantics
 - `main/include/runtime_types.h`: shared enums and small immutable contracts such as port IDs and health classes
 - `main/include/runtime_config.h`, `main/control/runtime_config.c`: validated runtime configuration contract
-- `main/include/platform_config_adapter.h`, `main/control/platform_config_adapter.c`: translation and compatibility boundary between platform-described capabilities and runtime-selected session configuration
 - `main/include/fault_manager.h`, `main/control/fault_manager.c`: normalized fault classes, severities, counters, and event publication
 - `main/include/session_controller.h`, `main/control/session_controller.c`: boot/start/stop/fault state machine and session metadata
 - `main/include/record_builder.h`, `main/logging/record_builder.c`: binary record encoding
@@ -125,8 +124,8 @@ Create or extend the runtime tree in this shape so module boundaries stay aligne
 
 The new runtime layer must align with revision-1 interface goals rather than current bring-up implementation details:
 
-- port identifiers and per-port runtime config should map cleanly onto the existing `BOARD_PORT_COUNT` and `board_profile_t.ports[]` model for compatibility, but runtime config should own whether a port participates in the session and how it is configured
-- introduce an explicit translation boundary so runtime config can be loaded later from SD, web, or other control surfaces without leaking those concerns into UART, sync, trigger, or storage modules
+- port identifiers and per-port runtime config should map directly onto `BOARD_PORT_COUNT` and the fixed board wiring table
+- future config sources should populate the runtime contract directly without leaking source-format concerns into UART, sync, trigger, or storage modules
 - `app_main` integration steps should preserve the useful existing safety checks while allowing the startup flow and ready-banner semantics to change to match the real session lifecycle
 - host-test additions should follow the existing `host_tests/CMakeLists.txt` pattern so the current `ctest` top-level command keeps discovering both the inherited tests and the new module tests
 
@@ -138,7 +137,7 @@ The new runtime layer must align with revision-1 interface goals rather than cur
 
 - Create: `main/include/runtime_config.h`
 
-- Create: `main/include/platform_config_adapter.h`
+- Create: `main/include/board_ports.h`
 
 - Create: `main/include/fault_manager.h`
 
@@ -146,7 +145,7 @@ The new runtime layer must align with revision-1 interface goals rather than cur
 
 - Create: `main/control/runtime_config.c`
 
-- Create: `main/control/platform_config_adapter.c`
+- Create: `main/platform/board_ports.c`
 
 - Create: `main/control/fault_manager.c`
 
@@ -154,7 +153,7 @@ The new runtime layer must align with revision-1 interface goals rather than cur
 
 - Create: `host_tests/runtime_config_host_test.cc`
 
-- Create: `host_tests/platform_config_adapter_host_test.cc`
+- Create: `host_tests/board_ports_host_test.cc`
 
 - Create: `host_tests/fault_manager_host_test.cc`
 
@@ -170,9 +169,10 @@ The new runtime layer must align with revision-1 interface goals rather than cur
 
 ```cpp
 TEST(RuntimeConfigTest, RejectsTriggerPulseWidthNotLessThanPeriod);
-TEST(RuntimeConfigTest, RejectsPortConfiguredAsSyncAndTriggerTogether);
-TEST(PlatformConfigAdapterTest, MapsBoardCapabilitiesIntoRuntimePortSet);
-TEST(PlatformConfigAdapterTest, RejectsRuntimeSelectionThatExceedsBoardCapabilities);
+TEST(RuntimeConfigTest, AcceptsEnabledPortWithNoTimingMode);
+TEST(RuntimeConfigTest, AcceptsSyncConfigurationWithoutExplicitEdgeMode);
+TEST(BoardPortsTest, ExposesFixedHardwareForEachPort);
+TEST(BoardPortsTest, RejectsOutOfRangePortIds);
 TEST(FaultManagerTest, LatchesDegradedHealthForRecoverableStorageBackpressure);
 TEST(SessionControllerTest, BlocksStartWhenConfigInvalid);
 TEST(SessionControllerTest, TransitionsToFaultedOnFatalFault);
@@ -182,8 +182,8 @@ TEST(SessionControllerTest, TransitionsToFaultedOnFatalFault);
 
 ```bash
 cmake -S host_tests -B build_host
-cmake --build build_host --target runtime_config_host_test platform_config_adapter_host_test fault_manager_host_test session_controller_host_test
-ctest --test-dir build_host --output-on-failure -R "runtime_config|platform_config_adapter|fault_manager|session_controller"
+cmake --build build_host --target runtime_config_host_test board_ports_host_test fault_manager_host_test session_controller_host_test
+ctest --test-dir build_host --output-on-failure -R "runtime_config|board_ports|fault_manager|session_controller"
 ```
 
 Expected: configure or compile failure because the new test targets and implementation files are not present yet.
@@ -192,9 +192,9 @@ Expected: configure or compile failure because the new test targets and implemen
 
 ```c
 typedef enum {
-  PORT_TIMING_DISABLED = 0,
-  PORT_TIMING_SYNC_INPUT,
-  PORT_TIMING_TRIGGER_OUTPUT,
+  PORT_TIMING_NONE = 0,
+  PORT_TIMING_SYNC,
+  PORT_TIMING_TRIGGER,
 } port_timing_mode_t;
 
 typedef enum {
@@ -209,9 +209,7 @@ typedef enum {
 
 esp_err_t runtime_config_validate(const runtime_config_t* config,
                                   runtime_config_error_t* error);
-esp_err_t platform_config_adapter_build_runtime(const board_profile_t* board,
-                                                const runtime_config_source_t* source,
-                                                runtime_config_t* out);
+const board_port_t* board_port(port_id_t port_id);
 void fault_manager_publish(fault_manager_t* manager, const fault_event_t* event);
 bool session_controller_request_start(session_controller_t* controller,
                                       const runtime_config_t* config);
@@ -221,15 +219,15 @@ bool session_controller_request_start(session_controller_t* controller,
 
 ```bash
 cmake --build build_host
-ctest --test-dir build_host --output-on-failure -R "runtime_config|fault_manager|session_controller|clock|board_profile|host_smoke"
+ctest --test-dir build_host --output-on-failure -R "runtime_config|fault_manager|session_controller|clock|board_ports|host_smoke"
 ```
 
-Expected: all control-plane tests pass; `app_main` still performs board validation and clock smoke, but the session boot path now flows through a runtime-config boundary instead of treating `board_profile_t` as the direct source of active-session behavior.
+Expected: all control-plane tests pass; `app_main` still performs clock smoke, while the runtime path now uses a fixed board-port map plus the simplified runtime-config contract.
 
 - [ ] **Step 5: Commit the control-plane baseline**
 
 ```bash
-git add main/CMakeLists.txt host_tests/CMakeLists.txt main/app_main.c main/include/runtime_types.h main/include/runtime_config.h main/include/platform_config_adapter.h main/include/fault_manager.h main/include/session_controller.h main/control/runtime_config.c main/control/platform_config_adapter.c main/control/fault_manager.c main/control/session_controller.c host_tests/runtime_config_host_test.cc host_tests/platform_config_adapter_host_test.cc host_tests/fault_manager_host_test.cc host_tests/session_controller_host_test.cc
+git add main/CMakeLists.txt host_tests/CMakeLists.txt main/app_main.c main/include/board_ports.h main/include/runtime_types.h main/include/runtime_config.h main/include/fault_manager.h main/include/session_controller.h main/platform/board_ports.c main/control/runtime_config.c main/control/fault_manager.c main/control/session_controller.c host_tests/board_ports_host_test.cc host_tests/runtime_config_host_test.cc host_tests/fault_manager_host_test.cc host_tests/session_controller_host_test.cc
 git commit -m "feat: add runtime config and session control foundations"
 ```
 
@@ -811,3 +809,4 @@ ______________________________________________________________________
 Status as of `2026-03-29` on branch `tim/exp/superpowers`:
 
 - [x] Atomic stack slice 1: runtime config contract and validation
+- [x] Atomic stack slice 2: platform config adapter and fault manager

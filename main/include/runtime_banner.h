@@ -1,13 +1,13 @@
 #pragma once
 
-#include "board_profile.h"
+#include "board_ports.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* Logs startup identity, memory, and active board wiring details. */
-void runtime_banner_log_startup(const board_profile_t* profile);
+/* Logs startup identity, memory, and fixed board wiring details. */
+void runtime_banner_log_startup(void);
 /* Emits a standard READY banner for automation and smoke tests. */
 void runtime_banner_log_ready(const char* case_name);
 /* Starts the low-priority periodic health logger task. */

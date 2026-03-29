@@ -27,12 +27,29 @@ target_include_directories(clock_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/i
 target_link_libraries(clock_host_test PRIVATE GTest::gtest_main)
 
 add_executable(
-    board_profile_host_test
-    board_profile_host_test.cc
-    ../main/platform/board_profile.c
+    board_ports_host_test
+    board_ports_host_test.cc
+    ../main/platform/board_ports.c
 )
-target_include_directories(board_profile_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
-target_link_libraries(board_profile_host_test PRIVATE GTest::gtest_main)
+target_include_directories(board_ports_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
+target_link_libraries(board_ports_host_test PRIVATE GTest::gtest_main)
+
+add_executable(
+    runtime_config_host_test
+    runtime_config_host_test.cc
+    ../main/platform/board_ports.c
+    ../main/control/runtime_config.c
+)
+target_include_directories(runtime_config_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
+target_link_libraries(runtime_config_host_test PRIVATE GTest::gtest_main)
+
+add_executable(
+    fault_manager_host_test
+    fault_manager_host_test.cc
+    ../main/control/fault_manager.c
+)
+target_include_directories(fault_manager_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
+target_link_libraries(fault_manager_host_test PRIVATE GTest::gtest_main)
 
 add_test(NAME host_smoke COMMAND host_smoke)
 set_tests_properties(
@@ -43,12 +60,6 @@ set_tests_properties(
 
 include(GoogleTest)
 gtest_discover_tests(clock_host_test)
-gtest_discover_tests(board_profile_host_test)
-add_executable(
-    runtime_config_host_test
-    runtime_config_host_test.cc
-    ../main/control/runtime_config.c
-)
-target_include_directories(runtime_config_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
-target_link_libraries(runtime_config_host_test PRIVATE GTest::gtest_main)
+gtest_discover_tests(board_ports_host_test)
 gtest_discover_tests(runtime_config_host_test)
+gtest_discover_tests(fault_manager_host_test)
