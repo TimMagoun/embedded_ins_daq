@@ -2,6 +2,7 @@ idf_component_register(
     SRCS
         "app_main.c"
         "capture/uart_capture_service.c"
+        "capture/uart_hal_adapter.c"
         "control/fault_manager.c"
         "control/runtime_config.c"
         "platform/board_ports.c"
@@ -19,6 +20,7 @@ idf_component_register(
     INCLUDE_DIRS
         "include"
     REQUIRES
+        esp_driver_uart
         esp_event
         esp_eth
         esp_netif
