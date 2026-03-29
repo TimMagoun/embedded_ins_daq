@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "app_main.c"
+        "capture/uart_capture_service.c"
         "control/fault_manager.c"
         "control/runtime_config.c"
         "platform/board_ports.c"
