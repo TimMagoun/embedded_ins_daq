@@ -44,3 +44,11 @@ set_tests_properties(
 include(GoogleTest)
 gtest_discover_tests(clock_host_test)
 gtest_discover_tests(board_profile_host_test)
+add_executable(
+    runtime_config_host_test
+    runtime_config_host_test.cc
+    ../main/control/runtime_config.c
+)
+target_include_directories(runtime_config_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
+target_link_libraries(runtime_config_host_test PRIVATE GTest::gtest_main)
+gtest_discover_tests(runtime_config_host_test)
