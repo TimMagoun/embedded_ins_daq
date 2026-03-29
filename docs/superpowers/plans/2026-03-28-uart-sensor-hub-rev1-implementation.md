@@ -816,3 +816,4 @@ Status as of `2026-03-29` on branch `tim/exp/superpowers`:
 - [x] Atomic stack slice 6: UART capture service
 - [x] Atomic stack slice 7: host-side storage service and session artifact writes
 - [x] Atomic stack slice 8: storage fault normalization and config snapshots
+- [x] Atomic stack slice 9: SD-backed autostart integration

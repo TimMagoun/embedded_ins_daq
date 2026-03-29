@@ -20,10 +20,12 @@ idf_component_register(
     INCLUDE_DIRS
         "include"
     REQUIRES
+        esp_driver_sdmmc
         esp_driver_uart
         esp_event
         esp_eth
         esp_netif
+        fatfs
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE

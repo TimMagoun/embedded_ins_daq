@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "clock_probe.h"
 #include "clock_service.h"
@@ -12,12 +13,17 @@
 #include "platform_iram.h"
 #include "runtime_banner.h"
 #include "runtime_config.h"
+#include "session_controller.h"
+#include "storage_service.h"
 
 static const char* TAG = "embedded_ins_daq";
 static const uint32_t kClockSmokeTaskDelayMs = 50U;
 static const uint32_t kClockSmokeMaxAttempts = 20U;
+static const int kDefaultSdmmcSlot = 1;
 
 static PLATFORM_INTERNAL_RAM clock_smoke_isr_state_t s_isr_smoke_state;
+static session_controller_t s_session_controller;
+static storage_service_t s_storage_service;
 
 static uint64_t app_clock_probe_read(void* ctx) {
   (void)ctx;
@@ -65,6 +71,19 @@ void app_main(void) {
 
   ESP_ERROR_CHECK(clock_init());
   runtime_banner_log_startup();
+
+  session_controller_init(&s_session_controller);
+  storage_service_init(&s_storage_service, kDefaultSdmmcSlot);
+  ESP_ERROR_CHECK(storage_service_mount(&s_storage_service));
+  ESP_ERROR_CHECK(session_controller_mark_storage_ready(&s_session_controller));
+  if (session_controller_mark_config_loaded(&s_session_controller, &config) !=
+      ESP_OK) {
+    ESP_LOGE(TAG, "Runtime config invalid: %s",
+             runtime_config_error_message(
+                 session_controller_last_config_error(&s_session_controller)));
+    abort();
+  }
+
   ESP_ERROR_CHECK(clock_smoke_start_isr(&s_isr_smoke_state));
 
   if (run_clock_monotonicity_smoke()) {
@@ -79,6 +98,8 @@ void app_main(void) {
     ESP_LOGE(TAG, "Ethernet smoke failed");
   }
 
+  ESP_ERROR_CHECK(session_controller_start_autonomously(&s_session_controller));
+  storage_service_unmount(&s_storage_service);
   runtime_banner_start_health_task();
   runtime_banner_log_ready("platform_smoke");
 }
