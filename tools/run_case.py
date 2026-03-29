@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import binascii
 import os
 import pathlib
 import shutil
@@ -17,6 +18,8 @@ DEFAULT_BUILD_DIR = REPO_ROOT / "build"
 DEFAULT_RUNS_ROOT = REPO_ROOT / "artifacts" / "runs" / "device"
 DEFAULT_LATEST_ROOT = REPO_ROOT / "artifacts" / "latest" / "device"
 DECODE_PANIC = REPO_ROOT / "tools" / "decode_panic.sh"
+SESSION_HEX_PREFIX = "SESSION_BIN_HEX "
+ARTIFACT_HEX_PREFIX = "ARTIFACT_HEX "
 
 
 class DeviceRunnerError(RuntimeError):
@@ -111,6 +114,45 @@ def decode_panic_log(
     )
 
 
+def extract_session_artifact(
+    monitor_log: pathlib.Path, output_path: pathlib.Path
+) -> None:
+    if not monitor_log.is_file():
+        return
+
+    hex_parts: list[str] = []
+    for line in monitor_log.read_text(encoding="utf-8", errors="replace").splitlines():
+        if SESSION_HEX_PREFIX not in line:
+            continue
+        hex_parts.append(line.split(SESSION_HEX_PREFIX, 1)[1].strip())
+
+    if not hex_parts:
+        return
+
+    output_path.write_bytes(binascii.unhexlify("".join(hex_parts)))
+
+
+def extract_named_artifacts(
+    monitor_log: pathlib.Path, output_dir: pathlib.Path
+) -> None:
+    if not monitor_log.is_file():
+        return
+
+    parts: dict[str, list[str]] = {}
+    for line in monitor_log.read_text(encoding="utf-8", errors="replace").splitlines():
+        if ARTIFACT_HEX_PREFIX not in line:
+            continue
+        payload = line.split(ARTIFACT_HEX_PREFIX, 1)[1].strip()
+        try:
+            artifact_name, hex_chunk = payload.split(" ", 1)
+        except ValueError:
+            continue
+        parts.setdefault(artifact_name, []).append(hex_chunk.strip())
+
+    for artifact_name, chunks in parts.items():
+        (output_dir / artifact_name).write_bytes(binascii.unhexlify("".join(chunks)))
+
+
 def build_flash_command(build_dir: pathlib.Path, port: str) -> list[str]:
     return ["idf.py", "-B", str(build_dir), "-p", port, "flash"]
 
@@ -143,6 +185,7 @@ def run_case(args: argparse.Namespace) -> int:
     latest_link = DEFAULT_LATEST_ROOT / case_name
     monitor_log = run_dir / "monitor.log"
     decode_log = run_dir / "decoded_backtrace.txt"
+    session_log = run_dir / "session.bin"
 
     run_dir.mkdir(parents=True, exist_ok=True)
     DEFAULT_LATEST_ROOT.mkdir(parents=True, exist_ok=True)
@@ -181,6 +224,8 @@ def run_case(args: argparse.Namespace) -> int:
 
     copy_run_artifacts(run_dir, build_dir)
     decode_panic_log(run_dir / "embedded_ins_daq.elf", monitor_log, decode_log)
+    extract_session_artifact(monitor_log, session_log)
+    extract_named_artifacts(monitor_log, run_dir)
     write_metadata(
         run_dir / "metadata.txt",
         {
