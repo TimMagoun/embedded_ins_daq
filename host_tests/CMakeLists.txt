@@ -101,6 +101,18 @@ target_include_directories(storage_service_host_test PRIVATE ${CMAKE_SOURCE_DIR}
 target_link_libraries(storage_service_host_test PRIVATE GTest::gtest_main)
 
 add_executable(
+    two_port_capture_host_test
+    two_port_capture_host_test.cc
+    ../main/control/runtime_config.c
+    ../main/control/fault_manager.c
+    ../main/logging/binary_log_pipeline.c
+    ../main/logging/record_builder.c
+    ../main/capture/uart_capture_service.c
+)
+target_include_directories(two_port_capture_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
+target_link_libraries(two_port_capture_host_test PRIVATE GTest::gtest_main)
+
+add_executable(
     binary_log_pipeline_host_test
     binary_log_pipeline_host_test.cc
     ../main/control/fault_manager.c
@@ -126,4 +138,5 @@ gtest_discover_tests(session_controller_host_test)
 gtest_discover_tests(record_builder_host_test)
 gtest_discover_tests(uart_capture_service_host_test)
 gtest_discover_tests(storage_service_host_test)
+gtest_discover_tests(two_port_capture_host_test)
 gtest_discover_tests(binary_log_pipeline_host_test)
