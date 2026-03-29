@@ -5,6 +5,7 @@ idf_component_register(
         "control/runtime_config.c"
         "platform/board_ports.c"
         "control/session_controller.c"
+        "logging/record_builder.c"
         "platform/clock_probe.c"
         "platform/clock_smoke.c"
         "platform/clock_service.c"

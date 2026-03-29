@@ -114,6 +114,12 @@ ctest --test-dir build_host
 
 The host test suite uses `gtest`, with `ctest` used as the top-level runner. Host test artifacts are written under `build_host/artifacts/<test_name>`.
 
+Binary log fixtures can be decoded with:
+
+```bash
+python3 tools/parse_binary_log.py host_tests/fixtures/session_example.bin
+```
+
 ### 7. Flash and monitor directly
 
 Use standard `ESP-IDF` commands whenever you want the manual workflow:
