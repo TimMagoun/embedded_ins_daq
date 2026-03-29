@@ -318,6 +318,252 @@ static void surface_capture_faults(reference_capture_port_t* ports,
   }
 }
 
+static esp_err_t run_reference_sd_logger_case(const board_profile_t* board,
+                                              const runtime_config_t* config,
+                                              session_controller_t* controller,
+                                              storage_service_t* storage) {
+  session_info_t session = {
+      .session_id = kSessionId,
+      .start_timestamp_us = clock_now_us(),
+  };
+  uint64_t start_timestamp_us = clock_now_us();
+  uint64_t deadline_us = clock_now_us() + UART_CAPTURE_OVERALL_TIMEOUT_US;
+  size_t active_port_count = 0U;
+  esp_err_t status = ESP_OK;
+
+  if (board == NULL || config == NULL || controller == NULL ||
+      storage == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  memset(s_reference_ports, 0, sizeof(s_reference_ports));
+  memset(&s_session_start_record, 0, sizeof(s_session_start_record));
+  s_active_session_info = session;
+  binary_log_pipeline_init(&s_binary_pipeline, s_session_pipeline,
+                           sizeof(s_session_pipeline));
+  status_log_pipeline_init(&s_status_pipeline_service, s_status_pipeline,
+                           sizeof(s_status_pipeline));
+  status = record_builder_build_session_start(&s_active_session_info, config,
+                                              &s_session_start_record);
+  if (status != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to encode session-start record: %s",
+             esp_err_to_name(status));
+    return status;
+  }
+
+  status = binary_log_pipeline_append(&s_binary_pipeline,
+                                      &s_session_start_record, NULL);
+  if (status != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to append session-start record: %s",
+             esp_err_to_name(status));
+    return status;
+  }
+  status = storage_service_open_session(storage, &s_active_session_info);
+  if (status != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to open SD-backed session: %s",
+             esp_err_to_name(status));
+    return status;
+  }
+  status = status_log_pipeline_append(&s_status_pipeline_service,
+                                      "boot_autostart=1");
+  if (status != ESP_OK) {
+    return status;
+  }
+  status = storage_service_copy_config_snapshot(storage, config);
+  if (status != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to persist config snapshot: %s",
+             esp_err_to_name(status));
+    return status;
+  }
+  status = drain_binary_pipeline_to_storage(storage, &s_binary_pipeline);
+  if (status != ESP_OK) {
+    return status;
+  }
+  status =
+      drain_status_pipeline_to_storage(storage, &s_status_pipeline_service);
+  if (status != ESP_OK) {
+    return status;
+  }
+
+  for (size_t i = 0; i < config->port_count; ++i) {
+    reference_capture_port_t* port;
+
+    if (!config->ports[i].enabled || !board->ports[i].enabled) {
+      continue;
+    }
+
+    port = &s_reference_ports[active_port_count];
+    port->port_id = (port_id_t)(i + 1U);
+    port->board_index = i;
+    port->active_uart_port = board->ports[i];
+    port->runtime_port = &config->ports[i];
+
+    status = uart_capture_service_init(&port->capture_service, port->port_id,
+                                       s_uart_capture_rings[active_port_count],
+                                       sizeof(s_uart_capture_rings[0]),
+                                       &s_binary_pipeline);
+    if (status != ESP_OK) {
+      ESP_LOGE(TAG, "Failed to initialize capture service for %s: %s",
+               board->ports[i].name, esp_err_to_name(status));
+      return status;
+    }
+
+    status = uart_hal_adapter_init(&port->uart_adapter, &port->active_uart_port,
+                                   port->runtime_port->baud_rate,
+                                   UART_CAPTURE_READ_BUFFER_BYTES * 2U);
+    if (status != ESP_OK) {
+      ESP_LOGE(TAG, "Failed to initialize %s UART adapter: %s",
+               board->ports[i].name, esp_err_to_name(status));
+      deinit_reference_ports(s_reference_ports, active_port_count);
+      return status;
+    }
+
+    ESP_LOGI(TAG, "%s raw capture armed on UART%d TX=%d RX=%d at %d baud",
+             board->ports[i].name, port->active_uart_port.uart_controller,
+             port->active_uart_port.tx_gpio, port->active_uart_port.rx_gpio,
+             port->runtime_port->baud_rate);
+    ESP_LOGI(
+        TAG, "%s retention=%u bytes for %u ms window", board->ports[i].name,
+        (unsigned)uart_capture_required_retention_bytes(
+            (uint32_t)port->runtime_port->baud_rate, UART_CAPTURE_RETENTION_MS),
+        (unsigned)UART_CAPTURE_RETENTION_MS);
+    active_port_count += 1U;
+  }
+
+  if (active_port_count == 0U) {
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  ESP_LOGI(TAG, "Awaiting UART input on %u reference ports",
+           (unsigned)active_port_count);
+
+  while (clock_now_us() < deadline_us) {
+    size_t complete_ports = 0U;
+
+    for (size_t i = 0; i < active_port_count; ++i) {
+      reference_capture_port_t* port = &s_reference_ports[i];
+      uint8_t read_buffer[UART_CAPTURE_READ_BUFFER_BYTES] = {0};
+      size_t bytes_read = 0U;
+
+      if (port->complete) {
+        complete_ports += 1U;
+        continue;
+      }
+
+      status = uart_hal_adapter_read(&port->uart_adapter, read_buffer,
+                                     sizeof(read_buffer),
+                                     UART_CAPTURE_READ_TIMEOUT_MS, &bytes_read);
+      if (status != ESP_OK) {
+        break;
+      }
+
+      if (bytes_read > 0U) {
+        const uint64_t rx_timestamp_us = clock_now_us();
+        status = uart_capture_service_on_rx_bytes(
+            &port->capture_service, port->port_id, rx_timestamp_us, read_buffer,
+            bytes_read);
+        if (status == ESP_ERR_NO_MEM &&
+            drain_capture_backpressure(&port->capture_service,
+                                       &s_binary_pipeline)) {
+          status =
+              drain_binary_pipeline_to_storage(storage, &s_binary_pipeline);
+          if (status == ESP_OK) {
+            status = uart_capture_service_on_rx_bytes(
+                &port->capture_service, port->port_id, rx_timestamp_us,
+                read_buffer, bytes_read);
+          }
+        }
+        if (status != ESP_OK) {
+          break;
+        }
+        port->total_bytes += bytes_read;
+        port->last_rx_timestamp_us = rx_timestamp_us;
+        continue;
+      }
+
+      if (port->total_bytes > 0U && port->last_rx_timestamp_us > 0U &&
+          clock_now_us() - port->last_rx_timestamp_us >=
+              UART_CAPTURE_IDLE_TIMEOUT_US) {
+        status = flush_port_capture(port, &s_binary_pipeline, storage);
+        if (status != ESP_OK) {
+          break;
+        }
+        port->complete = true;
+        complete_ports += 1U;
+        continue;
+      }
+    }
+
+    if (status != ESP_OK || complete_ports == active_port_count) {
+      break;
+    }
+
+  }
+
+  for (size_t i = 0; i < active_port_count && status == ESP_OK; ++i) {
+    if (s_reference_ports[i].complete) {
+      continue;
+    }
+
+    status =
+        flush_port_capture(&s_reference_ports[i], &s_binary_pipeline, storage);
+    s_reference_ports[i].complete = (status == ESP_OK);
+  }
+
+  if (status != ESP_OK) {
+    surface_capture_faults(s_reference_ports, active_port_count, controller,
+                           &s_binary_pipeline);
+    deinit_reference_ports(s_reference_ports, active_port_count);
+    if (drain_binary_pipeline_to_storage(storage, &s_binary_pipeline) !=
+        ESP_OK) {
+      emit_session_artifact(&s_binary_pipeline);
+    }
+    storage_service_close_session(storage);
+    return status;
+  }
+
+  deinit_reference_ports(s_reference_ports, active_port_count);
+
+  for (size_t i = 0; i < active_port_count; ++i) {
+    if (s_reference_ports[i].total_bytes > 0U) {
+      continue;
+    }
+
+    ESP_LOGE(TAG, "%s raw capture timed out before any UART bytes arrived",
+             board->ports[s_reference_ports[i].board_index].name);
+    (void)drain_binary_pipeline_to_storage(storage, &s_binary_pipeline);
+    storage_service_close_session(storage);
+    return ESP_ERR_TIMEOUT;
+  }
+
+  status = status_log_pipeline_append(&s_status_pipeline_service,
+                                      "capture_complete=1");
+  if (status == ESP_OK) {
+    status =
+        drain_status_pipeline_to_storage(storage, &s_status_pipeline_service);
+  }
+  if (status == ESP_OK) {
+    status = drain_binary_pipeline_to_storage(storage, &s_binary_pipeline);
+  }
+  if (status != ESP_OK) {
+    storage_service_close_session(storage);
+    return status;
+  }
+
+  storage_service_close_session(storage);
+
+  for (size_t i = 0; i < active_port_count; ++i) {
+    ESP_LOGI(TAG, "Captured %u %s UART bytes into the RAM pipeline",
+             (unsigned)s_reference_ports[i].total_bytes,
+             board->ports[s_reference_ports[i].board_index].name);
+  }
+  emit_file_artifact_hex("session.bin", storage_service_binary_path(storage));
+  emit_file_artifact_hex("status.log", storage_service_status_path(storage));
+  emit_file_artifact_hex("config.txt", storage_service_config_path(storage));
+  runtime_banner_log_ready(select_capture_case_name(config));
+  return ESP_OK;
+}
+
 static runtime_config_source_t default_runtime_config_source(
     const board_profile_t* board) {
   runtime_config_source_t source = {0};
@@ -328,9 +574,6 @@ static runtime_config_source_t default_runtime_config_source(
     source.ports[i].baud_rate = (i < 2U) ? 9600 : 921600;
     source.ports[i].timing_mode = PORT_TIMING_DISABLED;
   }
-  source.ports[0].timing_mode = PORT_TIMING_SYNC_INPUT;
-  source.ports[0].sync_edge_mode = SYNC_EDGE_RISING;
-  source.ports[0].enable_sync_input = true;
 
   return source;
 }
@@ -415,6 +658,8 @@ void app_main(void) {
   }
 
   ESP_ERROR_CHECK(session_controller_start_autonomously(&session_controller));
+  ESP_ERROR_CHECK(run_reference_sd_logger_case(
+      board, &runtime_config, &session_controller, &s_storage_service));
   storage_service_unmount(&s_storage_service);
   runtime_banner_start_health_task();
   runtime_banner_log_ready("platform_smoke");
