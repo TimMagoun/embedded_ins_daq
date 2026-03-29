@@ -35,6 +35,14 @@ target_include_directories(board_ports_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../
 target_link_libraries(board_ports_host_test PRIVATE GTest::gtest_main)
 
 add_executable(
+    ethernet_smoke_host_test
+    ethernet_smoke_host_test.cc
+    ../main/platform/ethernet_smoke_config.c
+)
+target_include_directories(ethernet_smoke_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
+target_link_libraries(ethernet_smoke_host_test PRIVATE GTest::gtest_main)
+
+add_executable(
     runtime_config_host_test
     runtime_config_host_test.cc
     ../main/platform/board_ports.c
@@ -111,6 +119,7 @@ set_tests_properties(
 include(GoogleTest)
 gtest_discover_tests(clock_host_test)
 gtest_discover_tests(board_ports_host_test)
+gtest_discover_tests(ethernet_smoke_host_test)
 gtest_discover_tests(runtime_config_host_test)
 gtest_discover_tests(fault_manager_host_test)
 gtest_discover_tests(session_controller_host_test)

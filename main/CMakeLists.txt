@@ -12,8 +12,13 @@ idf_component_register(
         "platform/clock_probe.c"
         "platform/clock_smoke.c"
         "platform/clock_service.c"
+        "platform/ethernet_smoke.c"
+        "platform/ethernet_smoke_config.c"
         "platform/runtime_banner.c"
         "storage/storage_service.c"
     INCLUDE_DIRS
         "include"
-)
+    REQUIRES
+        esp_event
+        esp_eth
+        esp_netif
