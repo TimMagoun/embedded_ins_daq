@@ -16,6 +16,10 @@ void fault_manager_publish(fault_manager_t* manager,
     return;
   }
 
+  if (event->code == FAULT_CODE_NONE) {
+    return;
+  }
+
   manager->event_count += 1U;
   if (event->severity == FAULT_SEVERITY_FATAL) {
     manager->has_fatal_fault = true;

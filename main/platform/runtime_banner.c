@@ -25,24 +25,13 @@ static void runtime_health_task(void* arg) {
   }
 }
 
-void runtime_banner_log_startup(const board_profile_t* profile) {
-  int i;
+void runtime_banner_log_startup(void) {
+  size_t i;
 
-  ESP_LOGI(TAG, "Active board profile: %s", profile->profile_name);
+  ESP_LOGI(TAG, "Board: %s", board_name());
+  ESP_LOGI(TAG, "Console: %s", board_console_path_name());
   ESP_LOGI(TAG, "Free heap: %lu bytes",
            (unsigned long)esp_get_free_heap_size());
-  for (i = 0; i < BOARD_PORT_COUNT; ++i) {
-    const board_port_profile_t* port = &profile->ports[i];
-    if (!port->enabled) {
-      ESP_LOGI(TAG, "%s disabled: UART/SYNC mapping reserved for later stage",
-               port->name);
-      continue;
-    }
-
-    ESP_LOGI(TAG, "%s provisional map: UART%d TX=%d RX=%d SYNC=%d", port->name,
-             port->uart_controller, port->tx_gpio, port->rx_gpio,
-             port->sync_gpio);
-  }
 }
 
 void runtime_banner_log_ready(const char* case_name) {

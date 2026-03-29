@@ -19,7 +19,7 @@ The design is intentionally logger-first. Raw UART bytes and timing events are a
 
 - support up to four sensor ports at up to `921600` baud each
 - support per-port timing role selection
-- support per-port trigger period, pulse width, and polarity
+- support per-port trigger period and pulse width
 - support per-port sync-input edge selection
 - maintain one free-running monotonic clock for the full session
 - avoid live clock discipline or phase correction during recording
@@ -36,6 +36,8 @@ The design is intentionally logger-first. Raw UART bytes and timing events are a
 ## System Model
 
 The ESP32-P4 Nano is the timing master and storage controller for the session.
+
+Revision 1 assumes one supported board configuration. The firmware owns one fixed compile-time mapping from logical ports to UART and GPIO resources. There is no runtime board-selection or board-capability negotiation layer.
 
 On boot, the firmware:
 
@@ -62,18 +64,17 @@ Each sensor port exposes:
 Each port is configured independently with:
 
 - `uart logging = enabled | disabled`
-- `timing mode = disabled | sync-input | trigger-output`
+- `timing mode = none | sync | trigger`
 
-If `timing mode = sync-input`, the port also defines:
+If `timing mode = sync`, the port also defines:
 
-- `edge_mode = rising | falling | both`
+- `sync_edge_mode = rising | falling | change`
+- default `sync_edge_mode = rising`
 
-If `timing mode = trigger-output`, the port also defines:
+If `timing mode = trigger`, the port also defines:
 
-- `period_us` or equivalent frequency field
+- `period_us`
 - `pulse_width_us`
-- `polarity = active-high | active-low`
-- optional `start_delay_us` or phase field
 
 This model supports mixed sensor sets such as:
 
@@ -111,7 +112,7 @@ Requirements:
 
 Responsibilities:
 
-- configure one hardware UART per active sensor port
+- configure one hardware UART per enabled sensor port
 - receive bytes via interrupt-driven service
 - store bytes into per-port internal-RAM ring buffers
 
@@ -123,16 +124,16 @@ Requirements:
 
 ### 3. Sync Capture And Trigger Output
 
-For `sync-input`:
+For `sync`:
 
-- configure GPIO interrupt mode per port using `edge_mode`
+- configure GPIO interrupt mode per port using `sync_edge_mode`
 - timestamp edges immediately in ISR context
 - record actual edge polarity in the event record
 
-For `trigger-output`:
+For `trigger`:
 
 - represent each pulse as two scheduled edge events: assert and deassert
-- support per-port period, pulse width, polarity, and start delay or phase
+- support per-port period and pulse width
 - prefer hardware-assisted output transitions over software-only task scheduling
 
 ### 4. Record Builder And Buffering
@@ -168,14 +169,14 @@ All session records use one free-running device clock with microsecond resolutio
 
 ### Trigger Scheduling
 
-Each trigger-output port uses an independent schedule referenced to the shared device clock.
+Each trigger port uses an independent schedule referenced to the shared device clock.
 
 Each pulse is modeled as:
 
 - assert at `t0`
 - deassert at `t0 + pulse_width_us`
 
-The system must support up to four independently configured trigger-output schedules concurrently.
+The system must support up to four independently configured trigger schedules concurrently.
 
 ### Sync Input Capture
 

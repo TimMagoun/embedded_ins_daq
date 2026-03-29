@@ -1,8 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
 
-#include "board_profile.h"
 #include "clock_probe.h"
 #include "clock_service.h"
 #include "clock_smoke.h"
@@ -12,6 +10,7 @@
 #include "freertos/task.h"
 #include "platform_iram.h"
 #include "runtime_banner.h"
+#include "runtime_config.h"
 
 static const char* TAG = "embedded_ins_daq";
 static const uint32_t kClockSmokeTaskDelayMs = 50U;
@@ -52,19 +51,18 @@ static bool run_clock_monotonicity_smoke(void) {
 }
 
 void app_main(void) {
-  const board_profile_t* board = board_profile_active();
-  board_profile_validation_result_t validation = {0};
+  runtime_config_t config = runtime_config_default();
+  runtime_config_error_t config_error = RUNTIME_CONFIG_ERROR_NONE;
+  esp_err_t config_status = runtime_config_validate(&config, &config_error);
 
-  ESP_ERROR_CHECK(clock_init());
-  if (!board_profile_validate(board, &validation)) {
-    ESP_LOGE(TAG, "Board profile validation failed: %s",
-             board_profile_validation_message(validation.code));
-    ESP_LOGE(TAG, "Failure details: port_index=%d gpio_a=%d gpio_b=%d",
-             validation.port_index, validation.gpio_a, validation.gpio_b);
-    abort();
+  if (config_status != ESP_OK) {
+    ESP_LOGE(TAG, "Default runtime config invalid: %s",
+             runtime_config_error_message(config_error));
+    ESP_ERROR_CHECK(config_status);
   }
 
-  runtime_banner_log_startup(board);
+  ESP_ERROR_CHECK(clock_init());
+  runtime_banner_log_startup();
   ESP_ERROR_CHECK(clock_smoke_start_isr(&s_isr_smoke_state));
 
   if (run_clock_monotonicity_smoke()) {
