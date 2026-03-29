@@ -1,0 +1,4 @@
+interface:
+  display_name: "Firmware Debugging"
+  short_description: "ESP-IDF firmware triage, panic decode, and GDBStub"
+  default_prompt: "Use $firmware-debugging to diagnose an ESP-IDF firmware failure in this repo with the right sequence of log capture, panic decode, and GDBStub commands."
