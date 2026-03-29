@@ -1,6 +1,8 @@
 idf_component_register(
     SRCS
         "app_main.c"
+        "capture/sync_capture_service.c"
+        "capture/sync_hal_adapter.c"
         "capture/uart_capture_service.c"
         "capture/uart_hal_adapter.c"
         "control/fault_manager.c"

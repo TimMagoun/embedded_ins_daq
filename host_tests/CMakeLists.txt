@@ -85,6 +85,17 @@ target_include_directories(record_builder_host_test PRIVATE ${CMAKE_SOURCE_DIR}/
 target_link_libraries(record_builder_host_test PRIVATE GTest::gtest_main)
 
 add_executable(
+    sync_capture_service_host_test
+    sync_capture_service_host_test.cc
+    ../main/control/fault_manager.c
+    ../main/logging/binary_log_pipeline.c
+    ../main/logging/record_builder.c
+    ../main/capture/sync_capture_service.c
+)
+target_include_directories(sync_capture_service_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
+target_link_libraries(sync_capture_service_host_test PRIVATE GTest::gtest_main)
+
+add_executable(
     uart_capture_service_host_test
     uart_capture_service_host_test.cc
     ../main/control/fault_manager.c
@@ -142,6 +153,7 @@ gtest_discover_tests(runtime_config_host_test)
 gtest_discover_tests(fault_manager_host_test)
 gtest_discover_tests(session_controller_host_test)
 gtest_discover_tests(record_builder_host_test)
+gtest_discover_tests(sync_capture_service_host_test)
 gtest_discover_tests(uart_capture_service_host_test)
 gtest_discover_tests(storage_service_host_test)
 gtest_discover_tests(two_port_capture_host_test)
