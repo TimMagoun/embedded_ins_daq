@@ -161,6 +161,12 @@ For the clock-specific bring-up check, use:
 python3 -m tools.run_case --case clock_monotonicity
 ```
 
+For the two-port SD-backed reference capture milestone, use:
+
+```bash
+python3 -m tools.run_case --case two_port_reference_capture
+```
+
 Artifacts land in:
 
 - `artifacts/runs/device/<case_name>/<timestamp>`
