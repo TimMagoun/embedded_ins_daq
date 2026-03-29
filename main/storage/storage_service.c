@@ -6,7 +6,49 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#if !defined(__cplusplus)
+#include <stdbool.h>
+#endif
+
+#ifdef __has_include
+#if __has_include("esp_vfs_fat.h")
+#include "driver/sdmmc_default_configs.h"
+#include "driver/sdmmc_host.h"
+#include "esp_log.h"
+#include "esp_vfs_fat.h"
+#if __has_include("sd_pwr_ctrl_by_on_chip_ldo.h")
+#include "sd_pwr_ctrl_by_on_chip_ldo.h"
+#define STORAGE_SERVICE_DEVICE_SD_PWR_CTRL 1
+#else
+#define STORAGE_SERVICE_DEVICE_SD_PWR_CTRL 0
+#endif
+#include "sdmmc_cmd.h"
+#define STORAGE_SERVICE_DEVICE_SD 1
+#else
+#define STORAGE_SERVICE_DEVICE_SD 0
+#define STORAGE_SERVICE_DEVICE_SD_PWR_CTRL 0
+#endif
+#else
+#define STORAGE_SERVICE_DEVICE_SD 0
+#define STORAGE_SERVICE_DEVICE_SD_PWR_CTRL 0
+#endif
+
+#if !defined(ESP_PLATFORM)
+#ifndef ESP_LOGE
+#define ESP_LOGE(tag, format, ...) ((void)0)
+#endif
+#ifndef ESP_LOGI
+#define ESP_LOGI(tag, format, ...) ((void)0)
+#endif
+#ifndef ESP_LOGW
+#define ESP_LOGW(tag, format, ...) ((void)0)
+#endif
+#endif
+
 static const char* kDefaultMountPath = "/sdcard";
+static const char* TAG = "storage_service";
+
+#define STORAGE_SERVICE_SD_LDO_CHANNEL_ESP32P4 4
 
 static void clear_paths(storage_service_t* service) {
   if (service == NULL) {
@@ -96,6 +138,7 @@ static esp_err_t ensure_directory_exists(const char* path) {
     const int result = mkdir(partial, 0777);
 #endif
     if (result != 0 && errno != EEXIST) {
+      ESP_LOGE(TAG, "mkdir failed for %s: errno=%d", partial, errno);
       return ESP_FAIL;
     }
   }
@@ -191,8 +234,56 @@ esp_err_t storage_service_mount(storage_service_t* service) {
     return ESP_OK;
   }
 
+#if STORAGE_SERVICE_DEVICE_SD
+  sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+  sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+  esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+      .format_if_mount_failed = false,
+      .max_files = 8,
+      .allocation_unit_size = 16 * 1024,
+      .disk_status_check_enable = false,
+      .use_one_fat = false,
+  };
+
+  host.slot = service->sdmmc_slot;
+  slot_config.width = 4;
+  slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+
+#if STORAGE_SERVICE_DEVICE_SD_PWR_CTRL && SOC_SDMMC_IO_POWER_EXTERNAL
+  sd_pwr_ctrl_ldo_config_t ldo_config = {
+      .ldo_chan_id = STORAGE_SERVICE_SD_LDO_CHANNEL_ESP32P4,
+  };
+  sd_pwr_ctrl_handle_t pwr_ctrl_handle = NULL;
+  const esp_err_t pwr_err =
+      sd_pwr_ctrl_new_on_chip_ldo(&ldo_config, &pwr_ctrl_handle);
+  if (pwr_err != ESP_OK) {
+    return set_fault(service, FAULT_CODE_STORAGE_IO, FAULT_SEVERITY_FATAL,
+                     pwr_err);
+  }
+  service->sd_pwr_ctrl_handle = pwr_ctrl_handle;
+  host.pwr_ctrl_handle = pwr_ctrl_handle;
+#endif
+
+  const esp_err_t err =
+      esp_vfs_fat_sdmmc_mount(service->base_path, &host, &slot_config,
+                              &mount_config, (sdmmc_card_t**)&service->sd_card);
+  if (err != ESP_OK) {
+#if STORAGE_SERVICE_DEVICE_SD_PWR_CTRL && SOC_SDMMC_IO_POWER_EXTERNAL
+    if (service->sd_pwr_ctrl_handle != NULL) {
+      (void)sd_pwr_ctrl_del_on_chip_ldo(
+          (sd_pwr_ctrl_handle_t)service->sd_pwr_ctrl_handle);
+      service->sd_pwr_ctrl_handle = NULL;
+    }
+#endif
+    return set_fault(service, FAULT_CODE_STORAGE_IO, FAULT_SEVERITY_FATAL, err);
+  }
+
+  service->mounted = true;
+  return ESP_OK;
+#else
   return set_fault(service, FAULT_CODE_STORAGE_IO, FAULT_SEVERITY_FATAL,
                    ESP_ERR_INVALID_STATE);
+#endif
 }
 
 esp_err_t storage_service_open_session(storage_service_t* service,
@@ -200,6 +291,7 @@ esp_err_t storage_service_open_session(storage_service_t* service,
   if (service == NULL || session == NULL) {
     return ESP_ERR_INVALID_ARG;
   }
+
   if (!service->mounted) {
     return ESP_ERR_INVALID_STATE;
   }
@@ -234,12 +326,22 @@ esp_err_t storage_service_open_session(storage_service_t* service,
   }
 
   if (ensure_directory_exists(service->session_dir_path) != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to create session directory: %s",
+             service->session_dir_path);
     return set_fault(service, FAULT_CODE_STORAGE_IO, FAULT_SEVERITY_FATAL,
                      ESP_FAIL);
   }
 
   service->binary_file = fopen(service->binary_path, "wb");
+  if (service->binary_file == NULL) {
+    ESP_LOGE(TAG, "Failed to open binary file %s: errno=%d",
+             service->binary_path, errno);
+  }
   service->status_file = fopen(service->status_path, "w");
+  if (service->status_file == NULL) {
+    ESP_LOGE(TAG, "Failed to open status file %s: errno=%d",
+             service->status_path, errno);
+  }
   if (service->binary_file == NULL || service->status_file == NULL) {
     storage_service_close_session(service);
     return set_fault(service, FAULT_CODE_STORAGE_IO, FAULT_SEVERITY_FATAL,
@@ -315,6 +417,8 @@ esp_err_t storage_service_copy_config_snapshot(storage_service_t* service,
 
   file = fopen(service->config_path, "w");
   if (file == NULL) {
+    ESP_LOGE(TAG, "Failed to open config file %s: errno=%d",
+             service->config_path, errno);
     return set_fault(service, FAULT_CODE_STORAGE_IO, FAULT_SEVERITY_FATAL,
                      ESP_FAIL);
   }
@@ -350,6 +454,28 @@ void storage_service_unmount(storage_service_t* service) {
   }
 
   storage_service_close_session(service);
+
+  if (!service->mounted) {
+    return;
+  }
+
+  if (!service->host_mode) {
+#if STORAGE_SERVICE_DEVICE_SD
+    if (service->sd_card != NULL) {
+      esp_vfs_fat_sdcard_unmount(service->base_path,
+                                 (sdmmc_card_t*)service->sd_card);
+      service->sd_card = NULL;
+    }
+#if STORAGE_SERVICE_DEVICE_SD_PWR_CTRL && SOC_SDMMC_IO_POWER_EXTERNAL
+    if (service->sd_pwr_ctrl_handle != NULL) {
+      (void)sd_pwr_ctrl_del_on_chip_ldo(
+          (sd_pwr_ctrl_handle_t)service->sd_pwr_ctrl_handle);
+      service->sd_pwr_ctrl_handle = NULL;
+    }
+#endif
+#endif
+  }
+
   service->mounted = false;
 }
 
