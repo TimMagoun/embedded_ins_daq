@@ -11,6 +11,8 @@ static const uint32_t kCrc32NibbleTable[16] = {
 };
 static const uint32_t kFnvOffsetBasis = 2166136261u;
 static const uint32_t kFnvPrime = 16777619u;
+static const uint32_t kRecordPortMaskBits =
+    sizeof(((session_start_record_payload_t*)0)->enabled_port_mask) * CHAR_BIT;
 
 _Static_assert(sizeof(binary_record_header_t) < RECORD_BUFFER_CAPACITY_BYTES,
                "record header must fit in the output buffer");
@@ -89,15 +91,15 @@ uint32_t record_builder_config_hash(const runtime_config_t* config) {
     return 0u;
   }
 
-  hash = (hash ^ (uint32_t)BOARD_PORT_COUNT) * 16777619u;
+  hash = fnv1a_mix(hash, (uint32_t)BOARD_PORT_COUNT);
   for (size_t i = 0; i < BOARD_PORT_COUNT; ++i) {
     const runtime_port_config_t* port = &config->ports[i];
-    hash = (hash ^ (uint32_t)(port->enabled ? 1u : 0u)) * 16777619u;
-    hash = (hash ^ (uint32_t)port->baud_rate) * 16777619u;
-    hash = (hash ^ (uint32_t)port->timing_mode) * 16777619u;
-    hash = (hash ^ (uint32_t)port->sync_edge_mode) * 16777619u;
-    hash = (hash ^ port->trigger_period_us) * 16777619u;
-    hash = (hash ^ port->trigger_pulse_width_us) * 16777619u;
+    hash = fnv1a_mix(hash, (uint32_t)(port->enabled ? 1u : 0u));
+    hash = fnv1a_mix(hash, (uint32_t)port->baud_rate);
+    hash = fnv1a_mix(hash, (uint32_t)port->timing_mode);
+    hash = fnv1a_mix(hash, (uint32_t)port->sync_edge_mode);
+    hash = fnv1a_mix(hash, port->trigger_period_us);
+    hash = fnv1a_mix(hash, port->trigger_pulse_width_us);
   }
 
   return hash;
@@ -115,7 +117,7 @@ esp_err_t record_builder_build_session_start(const session_info_t* session,
   payload.session_id = session->session_id;
   payload.config_hash = record_builder_config_hash(config);
 
-  for (size_t i = 0; i < BOARD_PORT_COUNT && i < 32U; ++i) {
+  for (size_t i = 0; i < BOARD_PORT_COUNT && i < kRecordPortMaskBits; ++i) {
     if (!config->ports[i].enabled) {
       continue;
     }
