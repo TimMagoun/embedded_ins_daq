@@ -812,3 +812,4 @@ Status as of `2026-03-29` on branch `tim/exp/superpowers`:
 - [x] Atomic stack slice 2: platform config adapter and fault manager
 - [x] Atomic stack slice 3: session controller
 - [x] Atomic stack slice 4: record builder and binary log parser
+- [x] Atomic stack slice 5: binary and status staging pipelines

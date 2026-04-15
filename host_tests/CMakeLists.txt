@@ -76,6 +76,42 @@ add_executable(
 target_include_directories(record_builder_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include)
 target_link_libraries(record_builder_host_test PRIVATE GTest::gtest_main)
 
+add_executable(
+    log_pipeline_base_host_test
+    log_pipeline_base_host_test.cc
+    ../main/logging/log_pipeline_base.c
+)
+target_include_directories(
+    log_pipeline_base_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include
+                                   ${CMAKE_SOURCE_DIR}/../main/logging
+)
+target_link_libraries(log_pipeline_base_host_test PRIVATE GTest::gtest_main)
+
+add_executable(
+    status_log_pipeline_host_test
+    status_log_pipeline_host_test.cc
+    ../main/logging/log_pipeline_base.c
+    ../main/logging/status_log_pipeline.c
+)
+target_include_directories(
+    status_log_pipeline_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include
+                                         ${CMAKE_SOURCE_DIR}/../main/logging
+)
+target_link_libraries(status_log_pipeline_host_test PRIVATE GTest::gtest_main)
+
+add_executable(
+    binary_log_pipeline_host_test
+    binary_log_pipeline_host_test.cc
+    ../main/control/fault_manager.c
+    ../main/logging/binary_log_pipeline.c
+    ../main/logging/log_pipeline_base.c
+)
+target_include_directories(
+    binary_log_pipeline_host_test PRIVATE ${CMAKE_SOURCE_DIR}/../main/include
+                                         ${CMAKE_SOURCE_DIR}/../main/logging
+)
+target_link_libraries(binary_log_pipeline_host_test PRIVATE GTest::gtest_main)
+
 add_test(NAME host_smoke COMMAND host_smoke)
 set_tests_properties(
     host_smoke
@@ -90,3 +126,6 @@ gtest_discover_tests(runtime_config_host_test)
 gtest_discover_tests(fault_manager_host_test)
 gtest_discover_tests(session_controller_host_test)
 gtest_discover_tests(record_builder_host_test)
+gtest_discover_tests(log_pipeline_base_host_test)
+gtest_discover_tests(status_log_pipeline_host_test)
+gtest_discover_tests(binary_log_pipeline_host_test)

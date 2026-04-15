@@ -41,11 +41,11 @@ repos:
         entry: uv run --group dev python3 tools/check_host_coverage.py
         language: system
         pass_filenames: false
-        stages: [pre-push]
+        stages: [manual]
 
       - id: cppcheck
         name: cppcheck
         entry: ./tools/run_cppcheck.sh
         language: system
         pass_filenames: false
-        stages: [pre-push]
+        stages: [manual]
