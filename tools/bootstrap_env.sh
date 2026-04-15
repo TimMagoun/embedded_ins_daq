@@ -33,6 +33,7 @@ require_tool idf.py
 require_tool cmake
 require_tool ctest
 require_tool uv
+require_tool cppcheck
 
 IDF_VERSION_RAW=$(idf.py --version)
 IDF_VERSION=$(printf '%s\n' "${IDF_VERSION_RAW}" | sed -E 's/^ESP-IDF v//')
@@ -47,6 +48,7 @@ log "ESP-IDF version: ${IDF_VERSION}"
 log "ESP-IDF path: ${IDF_PATH}"
 log "Supported target '${TARGET}' detected."
 log "uv: $(uv --version)"
+log "cppcheck: $(cppcheck --version)"
 log "Environment is assumed to be prepared by source ./tools/setup.sh."
 log "Next steps:"
 log "  1. idf.py set-target ${TARGET}   # once in a clean workspace"

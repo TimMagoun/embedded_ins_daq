@@ -49,7 +49,8 @@ static bool run_clock_monotonicity_smoke(void) {
            (unsigned long)s_isr_smoke_state.isr_sample_count);
   return false;
 }
-
+// Add the prototype here to satisfy compiler check
+void app_main(void);
 void app_main(void) {
   runtime_config_t config = runtime_config_default();
   runtime_config_error_t config_error = RUNTIME_CONFIG_ERROR_NONE;

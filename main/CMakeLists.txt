@@ -13,3 +13,30 @@ idf_component_register(
     INCLUDE_DIRS
         "include"
 )
+
+target_compile_options(${COMPONENT_LIB} PRIVATE
+    -Werror
+    -Wall
+    -Wextra
+    -Wno-undef
+    -Wno-error=undef
+    -Wcast-align=strict
+    -Wduplicated-branches
+    -Wduplicated-cond
+    -Wformat=2
+    -Wformat-overflow=2
+    -Wformat-truncation=2
+    -Wlogical-op
+    -Wmaybe-uninitialized
+    -Wmissing-declarations
+    -Wmissing-prototypes
+    -Wnull-dereference
+    -Wpointer-arith
+    -Wshadow
+    -Wstrict-prototypes
+    -Wswitch-enum
+    -Wuninitialized
+    -Wunused-variable
+    -Wuse-after-free
+    -Wvla
+)
