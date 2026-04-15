@@ -42,6 +42,9 @@ esp_err_t session_controller_mark_config_loaded(
   if (controller == NULL) {
     return ESP_ERR_INVALID_ARG;
   }
+  if (controller->state != SESSION_BOOT && controller->state != SESSION_READY) {
+    return ESP_ERR_INVALID_STATE;
+  }
 
   if (runtime_config_validate(config, &controller->last_config_error) !=
       ESP_OK) {
@@ -60,6 +63,9 @@ bool session_controller_request_start(session_controller_t* controller,
   if (controller == NULL) {
     return false;
   }
+  if (controller->state != SESSION_BOOT && controller->state != SESSION_READY) {
+    return false;
+  }
 
   if (runtime_config_validate(config, &controller->last_config_error) !=
       ESP_OK) {
@@ -69,20 +75,6 @@ bool session_controller_request_start(session_controller_t* controller,
 
   controller->state = SESSION_STARTING;
   return true;
-}
-
-esp_err_t session_controller_start_autonomously(
-    session_controller_t* controller) {
-  if (controller == NULL) {
-    return ESP_ERR_INVALID_ARG;
-  }
-  if (controller->state != SESSION_READY) {
-    return ESP_ERR_INVALID_STATE;
-  }
-
-  controller->state = SESSION_STARTING;
-  controller->state = SESSION_RECORDING;
-  return ESP_OK;
 }
 
 esp_err_t session_controller_mark_recording(session_controller_t* controller) {
