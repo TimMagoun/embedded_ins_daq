@@ -18,7 +18,9 @@ Python developer tooling is managed with `uv`. Formatting and pre-commit hooks a
 - shell with `shfmt`
 - Markdown with `mdformat`
 - C/C++ with `clang-format` using Google style
+- C/C++ static analysis with `cppcheck`
 - host unit tests with `gtest` orchestrated through `ctest`
+- host test coverage with `gcovr` enforced above 90%
 
 ## Quickstart
 
@@ -83,6 +85,10 @@ Run the full formatter pass at any time with:
 ```bash
 uv run --group dev pre-commit run --all-files
 ```
+
+The repo hook suite also includes `cppcheck`, which expects the firmware build to
+be configured so it can reuse `build/compile_commands.json` for the embedded pass.
+For a broader local pass, run `./tools/run_cppcheck.sh --strict`.
 
 ### 4. Select the target
 

@@ -15,14 +15,21 @@ namespace {
 runtime_config_t SampleConfig(void) {
   runtime_config_t config = {};
 
-  config.port_count = 4;
   config.ports[0].enabled = true;
   config.ports[0].baud_rate = 115200;
+  config.ports[0].timing_mode = PORT_TIMING_NONE;
+  config.ports[0].sync_edge_mode = SYNC_EDGE_RISING;
   config.ports[1].enabled = true;
   config.ports[1].baud_rate = 921600;
+  config.ports[1].timing_mode = PORT_TIMING_SYNC;
+  config.ports[1].sync_edge_mode = SYNC_EDGE_FALLING;
   config.ports[2].enabled = false;
   config.ports[3].enabled = true;
   config.ports[3].baud_rate = 460800;
+  config.ports[3].timing_mode = PORT_TIMING_TRIGGER;
+  config.ports[3].sync_edge_mode = SYNC_EDGE_CHANGE;
+  config.ports[3].trigger_period_us = 1000;
+  config.ports[3].trigger_pulse_width_us = 50;
 
   return config;
 }
@@ -85,6 +92,97 @@ TEST(RecordBuilderTest, EncodesUartDataWithFirstByteTimestamp) {
   EXPECT_EQ(header.source_id, 2U);
   EXPECT_EQ(payload.data_length, bytes.size());
   EXPECT_EQ(encoded, bytes);
+}
+
+TEST(RecordBuilderTest, ReturnsZeroForNullConfigHash) {
+  EXPECT_EQ(record_builder_config_hash(NULL), 0U);
+}
+
+TEST(RecordBuilderTest, RejectsNullSessionStartSession) {
+  record_buffer_t record = {};
+  runtime_config_t config = SampleConfig();
+
+  EXPECT_EQ(record_builder_build_session_start(NULL, &config, &record),
+            ESP_ERR_INVALID_ARG);
+}
+
+TEST(RecordBuilderTest, RejectsNullSessionStartConfig) {
+  record_buffer_t record = {};
+  session_info_t session = {};
+
+  EXPECT_EQ(record_builder_build_session_start(&session, NULL, &record),
+            ESP_ERR_INVALID_ARG);
+}
+
+TEST(RecordBuilderTest, RejectsNullSessionStartOutput) {
+  runtime_config_t config = SampleConfig();
+  session_info_t session = {};
+
+  EXPECT_EQ(record_builder_build_session_start(&session, &config, NULL),
+            ESP_ERR_INVALID_ARG);
+}
+
+TEST(RecordBuilderTest, RejectsNullFaultEventInput) {
+  record_buffer_t record = {};
+
+  EXPECT_EQ(
+      record_builder_build_fault_event(1U, 2U, NULL, HEALTH_STATUS_OK, &record),
+      ESP_ERR_INVALID_ARG);
+}
+
+TEST(RecordBuilderTest, RejectsNullFaultEventOutput) {
+  fault_event_t fault_event = {};
+
+  EXPECT_EQ(record_builder_build_fault_event(1U, 2U, &fault_event,
+                                             HEALTH_STATUS_OK, NULL),
+            ESP_ERR_INVALID_ARG);
+}
+
+TEST(RecordBuilderTest, RejectsNullUartDataBytes) {
+  record_buffer_t record = {};
+
+  EXPECT_EQ(record_builder_build_uart_data(1U, 2U, NULL, 4U, &record),
+            ESP_ERR_INVALID_ARG);
+}
+
+TEST(RecordBuilderTest, RejectsZeroLengthUartData) {
+  record_buffer_t record = {};
+  const std::array<uint8_t, 4> bytes = {0xde, 0xad, 0xbe, 0xef};
+
+  EXPECT_EQ(record_builder_build_uart_data(1U, 2U, bytes.data(), 0U, &record),
+            ESP_ERR_INVALID_ARG);
+}
+
+TEST(RecordBuilderTest, RejectsOversizedUartData) {
+  record_buffer_t record = {};
+  const std::array<uint8_t, RECORD_BUFFER_CAPACITY_BYTES> oversized_bytes = {};
+
+  EXPECT_EQ(record_builder_build_uart_data(1U, 2U, oversized_bytes.data(),
+                                           oversized_bytes.size(), &record),
+            ESP_ERR_NO_MEM);
+}
+
+TEST(RecordBuilderTest, RejectsNullSyncEdgeOutput) {
+  EXPECT_EQ(record_builder_build_sync_edge(1U, 2U, true, NULL),
+            ESP_ERR_INVALID_ARG);
+}
+
+TEST(RecordBuilderTest, EncodesFaultEvent) {
+  record_buffer_t record = {};
+  fault_event_t fault_event = {};
+
+  fault_event.code = FAULT_CODE_CAPTURE_OVERFLOW;
+  fault_event.severity = FAULT_SEVERITY_FATAL;
+
+  ASSERT_EQ(record_builder_build_fault_event(3U, 4U, &fault_event,
+                                             HEALTH_STATUS_FAULTED, &record),
+            ESP_OK);
+}
+
+TEST(RecordBuilderTest, EncodesSyncEdge) {
+  record_buffer_t record = {};
+
+  ASSERT_EQ(record_builder_build_sync_edge(5U, 6U, false, &record), ESP_OK);
 }
 
 }  // namespace

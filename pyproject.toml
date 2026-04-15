@@ -9,6 +9,7 @@ dependencies = []
 dev = [
     "black==26.3.1",
     "clang-format==22.1.1",
+    "gcovr==7.2",
     "mdformat==1.0.0",
     "pre-commit==4.5.1",
     "shfmt-py==3.12.0.2",

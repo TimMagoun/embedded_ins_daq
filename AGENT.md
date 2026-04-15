@@ -56,6 +56,7 @@
 
 - **Coverage:** Unit tests are mandatory for new logic unless waived. Decouple algorithms from the HAL to allow native unit testing.
 - **Host vs. Device:** Use `gtest` (via `cmake`/`ctest`) for host tests under `host_tests`. Use Unity for on-device firmware tests.
+- **Atomic Tests:** Keep each test focused on one behavior or a small related API contract; split unrelated assertions into separate cases.
 - **Smoke Cases:** `platform_smoke` is the canonical bring-up case. A successful run logs firmware identity, port mappings, `READY: clock_monotonicity`, `READY: platform_smoke`, and periodic `HEALTH` lines on `UART0`.
 - **Pre-Commit:** Run relevant `pre-commit` hooks before closing a task to ensure formatting compliance.
 - **Code Review:** Explicitly check architecture boundaries, edge cases, test coverage, and style before closing a PR review task.
