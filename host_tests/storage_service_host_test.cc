@@ -17,10 +17,10 @@ namespace {
 runtime_config_t SampleConfig(void) {
   runtime_config_t config = {};
 
-  config.port_count = 1;
   config.ports[0].enabled = true;
   config.ports[0].baud_rate = 115200;
-  config.ports[0].timing_mode = PORT_TIMING_DISABLED;
+  config.ports[0].timing_mode = PORT_TIMING_NONE;
+  config.ports[0].sync_edge_mode = SYNC_EDGE_RISING;
 
   return config;
 }
@@ -100,8 +100,8 @@ TEST(StorageServiceTest, WritesSyncEdgeModeIntoConfigSnapshot) {
 
   session.session_id = 99U;
   session.start_timestamp_us = 999U;
-  config.ports[0].timing_mode = PORT_TIMING_SYNC_INPUT;
-  config.ports[0].sync_edge_mode = SYNC_EDGE_BOTH;
+  config.ports[0].timing_mode = PORT_TIMING_SYNC;
+  config.ports[0].sync_edge_mode = SYNC_EDGE_CHANGE;
 
   std::filesystem::remove_all(root);
 
@@ -129,7 +129,7 @@ TEST(StorageServiceTest, WritesSyncEdgeModeIntoConfigSnapshot) {
     return data;
   }();
 
-  EXPECT_NE(contents.find("port1.sync_edge_mode=3"), std::string::npos);
+  EXPECT_NE(contents.find("port1.sync_edge_mode=2"), std::string::npos);
 
   std::filesystem::remove_all(root);
 }

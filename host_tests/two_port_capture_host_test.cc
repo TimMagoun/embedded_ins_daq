@@ -103,13 +103,12 @@ TEST(TwoPortCaptureTest, SupportsIndependentBaudRatesPerPort) {
   runtime_config_t config = {};
   runtime_config_error_t error = RUNTIME_CONFIG_ERROR_NONE;
 
-  config.port_count = 2;
   config.ports[0].enabled = true;
   config.ports[0].baud_rate = 9600;
-  config.ports[0].timing_mode = PORT_TIMING_DISABLED;
+  config.ports[0].timing_mode = PORT_TIMING_NONE;
   config.ports[1].enabled = true;
   config.ports[1].baud_rate = 921600;
-  config.ports[1].timing_mode = PORT_TIMING_DISABLED;
+  config.ports[1].timing_mode = PORT_TIMING_NONE;
 
   EXPECT_EQ(runtime_config_validate(&config, &error), ESP_OK);
   EXPECT_EQ(error, RUNTIME_CONFIG_ERROR_NONE);

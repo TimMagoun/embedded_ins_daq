@@ -166,25 +166,18 @@ static esp_err_t format_config_snapshot(FILE* file,
     return ESP_ERR_INVALID_ARG;
   }
 
-  if (write_format_line(file, "port_count=%u\n",
-                        (unsigned)config->port_count) != ESP_OK) {
-    return ESP_FAIL;
-  }
-
-  for (size_t i = 0; i < config->port_count; ++i) {
+  for (size_t i = 0; i < BOARD_PORT_COUNT; ++i) {
     const runtime_port_config_t* port = &config->ports[i];
     if (write_format_line(
             file,
-            "port%u.enabled=%u\nport%u.uart_port=%d\nport%u.baud_rate=%d\n"
-            "port%u.timing_mode=%u\nport%u.sync_edge_mode=%u\n"
-            "port%u.enable_sync_input=%u\n"
-            "port%u.trigger_period_us=%u\nport%u.trigger_pulse_width_us=%u\n",
+            "port%u.enabled=%u\nport%u.baud_rate=%d\nport%u.timing_mode=%u\n"
+            "port%u.sync_edge_mode=%u\nport%u.trigger_period_us=%u\n"
+            "port%u.trigger_pulse_width_us=%u\n",
             (unsigned)(i + 1U), port->enabled ? 1U : 0U, (unsigned)(i + 1U),
-            port->uart_port, (unsigned)(i + 1U), port->baud_rate,
-            (unsigned)(i + 1U), (unsigned)port->timing_mode, (unsigned)(i + 1U),
-            (unsigned)port->sync_edge_mode, (unsigned)(i + 1U),
-            port->enable_sync_input ? 1U : 0U, (unsigned)(i + 1U),
-            (unsigned)port->trigger_period_us, (unsigned)(i + 1U),
+            port->baud_rate, (unsigned)(i + 1U), (unsigned)port->timing_mode,
+            (unsigned)(i + 1U), (unsigned)port->sync_edge_mode,
+            (unsigned)(i + 1U), (unsigned)port->trigger_period_us,
+            (unsigned)(i + 1U),
             (unsigned)port->trigger_pulse_width_us) != ESP_OK) {
       return ESP_FAIL;
     }
