@@ -26,8 +26,6 @@ static void runtime_health_task(void* arg) {
 }
 
 void runtime_banner_log_startup(void) {
-  size_t i;
-
   ESP_LOGI(TAG, "Board: %s", board_name());
   ESP_LOGI(TAG, "Console: %s", board_console_path_name());
   ESP_LOGI(TAG, "Free heap: %lu bytes",
