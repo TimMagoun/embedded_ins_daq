@@ -23,6 +23,7 @@ require_tool() {
 require_tool cppcheck
 
 STRICT=0
+JOBS=$(nproc)
 
 usage() {
     cat << 'EOF'
@@ -53,6 +54,7 @@ run_cppcheck() {
     shift
 
     local -a cppcheck_args=(
+        -j "${JOBS}"
         --enable=warning,performance,portability
         --inline-suppr
         --force

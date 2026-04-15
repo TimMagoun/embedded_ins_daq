@@ -7,12 +7,15 @@ import pathlib
 import subprocess
 import sys
 import shutil
+import os
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUILD_DIR = REPO_ROOT / "build_host_coverage"
 SOURCE_DIR = REPO_ROOT / "host_tests"
 MAIN_DIR = REPO_ROOT / "main"
 COVERAGE_THRESHOLD = 90.0
+
+JOBS = os.cpu_count()
 
 
 def run(command: list[str]) -> None:
@@ -34,14 +37,25 @@ def configure_build() -> None:
 
 
 def build_and_test() -> None:
-    run(["cmake", "--build", str(BUILD_DIR)])
-    run(["ctest", "--test-dir", str(BUILD_DIR), "--output-on-failure"])
+    run(["cmake", "--build", str(BUILD_DIR), "--parallel", str(JOBS)])
+    run(
+        [
+            "ctest",
+            "--test-dir",
+            str(BUILD_DIR),
+            "--output-on-failure",
+            "--parallel",
+            str(JOBS),
+        ]
+    )
 
 
 def read_coverage_summary() -> float:
     completed = subprocess.run(
         [
             "gcovr",
+            "-j",
+            str(JOBS),
             "--root",
             str(REPO_ROOT),
             "--filter",
