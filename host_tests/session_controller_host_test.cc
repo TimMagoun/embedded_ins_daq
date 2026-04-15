@@ -110,6 +110,10 @@ TEST(SessionControllerTest, RejectsNullStartRequestController) {
   EXPECT_FALSE(session_controller_request_start(NULL, &valid_config));
 }
 
+TEST(SessionControllerTest, RejectsNullAutonomousStartController) {
+  EXPECT_EQ(session_controller_start_autonomously(NULL), ESP_ERR_INVALID_ARG);
+}
+
 TEST(SessionControllerTest, RejectsNullMarkRecordingController) {
   EXPECT_EQ(session_controller_mark_recording(NULL), ESP_ERR_INVALID_ARG);
 }
