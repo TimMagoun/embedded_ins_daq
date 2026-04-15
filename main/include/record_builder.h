@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -35,13 +36,13 @@ typedef enum {
   RECORD_TYPE_SYNC_EDGE = 4,
 } record_type_t;
 
-typedef struct {
-  uint16_t record_type;
-  uint16_t record_version;
-  uint32_t payload_length;
+typedef struct __attribute__((packed)) {
   uint64_t timestamp_us;
-  uint32_t source_id;
   uint32_t crc32;
+  uint16_t payload_length;
+  uint8_t record_type;
+  uint8_t record_version;
+  uint8_t source_id;
 } binary_record_header_t;
 
 typedef struct {
@@ -54,27 +55,25 @@ typedef struct {
   uint64_t start_timestamp_us;
 } session_info_t;
 
-typedef struct {
+typedef struct __attribute__((packed)) {
   uint32_t session_id;
   uint32_t config_hash;
   uint32_t enabled_port_mask;
-  uint32_t enabled_port_count;
+  uint8_t enabled_port_count;
 } session_start_record_payload_t;
 
-typedef struct {
-  uint32_t fault_code;
-  uint32_t fault_severity;
-  uint32_t health_status;
-  uint32_t reserved;
+typedef struct __attribute__((packed)) {
+  uint8_t fault_code;
+  uint8_t fault_severity;
+  uint8_t health_status;
 } fault_event_record_payload_t;
 
-typedef struct {
-  uint32_t data_length;
+typedef struct __attribute__((packed)) {
+  uint16_t data_length;
 } uart_data_record_payload_prefix_t;
 
-typedef struct {
-  uint32_t edge_polarity;
-  uint32_t reserved;
+typedef struct __attribute__((packed)) {
+  bool edge_polarity;
 } sync_edge_record_payload_t;
 
 uint32_t record_builder_config_hash(const runtime_config_t* config);

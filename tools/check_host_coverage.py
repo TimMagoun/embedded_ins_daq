@@ -18,6 +18,13 @@ COVERAGE_THRESHOLD = 90.0
 JOBS = os.cpu_count()
 
 
+def detect_jobs() -> int:
+    return max(2, os.cpu_count() or 2)
+
+
+JOBS = detect_jobs()
+
+
 def run(command: list[str]) -> None:
     subprocess.run(command, cwd=REPO_ROOT, check=True)
 
