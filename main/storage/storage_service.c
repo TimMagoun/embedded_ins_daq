@@ -88,12 +88,12 @@ static esp_err_t copy_text(char* dest, size_t capacity, const char* src) {
 
 static esp_err_t append_path_suffix(char* dest, size_t capacity,
                                     const char* base, const char* suffix) {
-  const size_t base_length = base == NULL ? 0U : strlen(base);
-  const size_t suffix_length = suffix == NULL ? 0U : strlen(suffix);
-
   if (dest == NULL || capacity == 0U || base == NULL || suffix == NULL) {
     return ESP_ERR_INVALID_ARG;
   }
+
+  const size_t base_length = strlen(base);
+  const size_t suffix_length = strlen(suffix);
 
   if (base_length + suffix_length >= capacity) {
     return ESP_FAIL;
@@ -108,12 +108,13 @@ static esp_err_t append_session_suffix(char* dest, size_t capacity,
                                        const char* base, uint32_t session_id,
                                        const char* suffix) {
   char formatted_suffix[32];
-  const int written = snprintf(formatted_suffix, sizeof(formatted_suffix),
-                               "%s%06u", suffix, (unsigned)session_id);
 
   if (dest == NULL || capacity == 0U || base == NULL || suffix == NULL) {
     return ESP_ERR_INVALID_ARG;
   }
+
+  const int written = snprintf(formatted_suffix, sizeof(formatted_suffix),
+                               "%s%06u", suffix, (unsigned)session_id);
   if (written < 0 || (size_t)written >= sizeof(formatted_suffix)) {
     return ESP_FAIL;
   }
