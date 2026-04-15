@@ -1,16 +1,41 @@
 #include "record_builder.h"
 
+#include <limits.h>
 #include <string.h>
+
+static const uint32_t kCrc32NibbleTable[16] = {
+    0x00000000u, 0x1db71064u, 0x3b6e20c8u, 0x26d930acu,
+    0x76dc4190u, 0x6b6b51f4u, 0x4db26158u, 0x5005713cu,
+    0xedb88320u, 0xf00f9344u, 0xd6d6a3e8u, 0xcb61b38cu,
+    0x9b64c2b0u, 0x86d3d2d4u, 0xa00ae278u, 0xbdbdf21cu,
+};
+static const uint32_t kFnvOffsetBasis = 2166136261u;
+static const uint32_t kFnvPrime = 16777619u;
+static const uint32_t kRecordPortMaskBits =
+    sizeof(((session_start_record_payload_t*)0)->enabled_port_mask) * CHAR_BIT;
+
+_Static_assert(sizeof(binary_record_header_t) < RECORD_BUFFER_CAPACITY_BYTES,
+               "record header must fit in the output buffer");
+_Static_assert(sizeof(binary_record_header_t) +
+                       sizeof(session_start_record_payload_t) <=
+                   RECORD_BUFFER_CAPACITY_BYTES,
+               "session start records must fit in the output buffer");
+_Static_assert(sizeof(binary_record_header_t) +
+                       sizeof(fault_event_record_payload_t) <=
+                   RECORD_BUFFER_CAPACITY_BYTES,
+               "fault event records must fit in the output buffer");
+_Static_assert(sizeof(binary_record_header_t) +
+                       sizeof(sync_edge_record_payload_t) <=
+                   RECORD_BUFFER_CAPACITY_BYTES,
+               "sync edge records must fit in the output buffer");
 
 static uint32_t crc32_update(uint32_t crc, const uint8_t* data, size_t length) {
   uint32_t value = crc;
 
   for (size_t i = 0; i < length; ++i) {
     value ^= data[i];
-    for (int bit = 0; bit < 8; ++bit) {
-      const uint32_t mask = (uint32_t)(-(int)(value & 1u));
-      value = (value >> 1) ^ (0xedb88320u & mask);
-    }
+    value = (value >> 4) ^ kCrc32NibbleTable[value & 0x0fu];
+    value = (value >> 4) ^ kCrc32NibbleTable[value & 0x0fu];
   }
 
   return value;
@@ -20,31 +45,28 @@ static uint32_t crc32_bytes(const uint8_t* data, size_t length) {
   return ~crc32_update(0xffffffffu, data, length);
 }
 
-static esp_err_t build_record(uint16_t record_type, uint64_t timestamp_us,
+static uint32_t fnv1a_mix(uint32_t hash, uint32_t value) {
+  return (hash ^ value) * kFnvPrime;
+}
+
+static esp_err_t build_record(uint8_t record_type, uint64_t timestamp_us,
                               uint32_t source_id, const void* payload,
                               size_t payload_length, record_buffer_t* out) {
   binary_record_header_t header = {};
   uint8_t* payload_bytes = NULL;
   uint32_t crc = 0u;
 
-  if (payload_length > 0U && payload == NULL) {
+  if (source_id > UINT8_MAX || payload_length > UINT16_MAX) {
     return ESP_ERR_INVALID_ARG;
-  }
-
-  if (out == NULL) {
-    return ESP_ERR_INVALID_ARG;
-  }
-
-  if (sizeof(header) + payload_length > sizeof(out->bytes)) {
-    return ESP_ERR_NO_MEM;
   }
 
   header.record_type = record_type;
   header.record_version = RECORD_FORMAT_VERSION;
-  header.payload_length = (uint32_t)payload_length;
+  header.payload_length = (uint16_t)payload_length;
   header.timestamp_us = timestamp_us;
-  header.source_id = source_id;
+  header.source_id = (uint8_t)source_id;
 
+  /* Source and destination never overlap in these record writes. */
   memcpy(out->bytes, &header, sizeof(header));
   if (payload_length > 0U) {
     memcpy(out->bytes + sizeof(header), payload, payload_length);
@@ -63,21 +85,21 @@ static esp_err_t build_record(uint16_t record_type, uint64_t timestamp_us,
 }
 
 uint32_t record_builder_config_hash(const runtime_config_t* config) {
-  uint32_t hash = 2166136261u;
+  uint32_t hash = kFnvOffsetBasis;
 
   if (config == NULL) {
     return 0u;
   }
 
-  hash = (hash ^ (uint32_t)BOARD_PORT_COUNT) * 16777619u;
+  hash = fnv1a_mix(hash, (uint32_t)BOARD_PORT_COUNT);
   for (size_t i = 0; i < BOARD_PORT_COUNT; ++i) {
     const runtime_port_config_t* port = &config->ports[i];
-    hash = (hash ^ (uint32_t)(port->enabled ? 1u : 0u)) * 16777619u;
-    hash = (hash ^ (uint32_t)port->baud_rate) * 16777619u;
-    hash = (hash ^ (uint32_t)port->timing_mode) * 16777619u;
-    hash = (hash ^ (uint32_t)port->sync_edge_mode) * 16777619u;
-    hash = (hash ^ port->trigger_period_us) * 16777619u;
-    hash = (hash ^ port->trigger_pulse_width_us) * 16777619u;
+    hash = fnv1a_mix(hash, (uint32_t)(port->enabled ? 1u : 0u));
+    hash = fnv1a_mix(hash, (uint32_t)port->baud_rate);
+    hash = fnv1a_mix(hash, (uint32_t)port->timing_mode);
+    hash = fnv1a_mix(hash, (uint32_t)port->sync_edge_mode);
+    hash = fnv1a_mix(hash, port->trigger_period_us);
+    hash = fnv1a_mix(hash, port->trigger_pulse_width_us);
   }
 
   return hash;
@@ -95,7 +117,7 @@ esp_err_t record_builder_build_session_start(const session_info_t* session,
   payload.session_id = session->session_id;
   payload.config_hash = record_builder_config_hash(config);
 
-  for (size_t i = 0; i < BOARD_PORT_COUNT && i < 32U; ++i) {
+  for (size_t i = 0; i < BOARD_PORT_COUNT && i < kRecordPortMaskBits; ++i) {
     if (!config->ports[i].enabled) {
       continue;
     }
@@ -132,22 +154,25 @@ esp_err_t record_builder_build_uart_data(uint32_t source_id,
                                          const uint8_t* bytes, size_t length,
                                          record_buffer_t* out) {
   uart_data_record_payload_prefix_t prefix = {};
-  uint8_t payload[RECORD_BUFFER_CAPACITY_BYTES] = {0};
 
   if (bytes == NULL || out == NULL || length == 0U) {
     return ESP_ERR_INVALID_ARG;
   }
 
-  if (sizeof(prefix) + length > sizeof(payload)) {
+  if (sizeof(binary_record_header_t) + sizeof(prefix) + length >
+      sizeof(out->bytes)) {
     return ESP_ERR_NO_MEM;
   }
 
-  prefix.data_length = (uint32_t)length;
-  memcpy(payload, &prefix, sizeof(prefix));
-  memcpy(payload + sizeof(prefix), bytes, length);
+  prefix.data_length = (uint16_t)length;
+  /* The caller-provided buffer is distinct from the output record buffer. */
+  memcpy(out->bytes + sizeof(binary_record_header_t), &prefix, sizeof(prefix));
+  memcpy(out->bytes + sizeof(binary_record_header_t) + sizeof(prefix), bytes,
+         length);
 
   return build_record(RECORD_TYPE_UART_DATA, first_byte_timestamp_us, source_id,
-                      payload, sizeof(prefix) + length, out);
+                      out->bytes + sizeof(binary_record_header_t),
+                      sizeof(prefix) + length, out);
 }
 
 esp_err_t record_builder_build_sync_edge(uint32_t source_id,
@@ -159,7 +184,7 @@ esp_err_t record_builder_build_sync_edge(uint32_t source_id,
     return ESP_ERR_INVALID_ARG;
   }
 
-  payload.edge_polarity = level_high ? 1u : 0u;
+  payload.edge_polarity = level_high;
   return build_record(RECORD_TYPE_SYNC_EDGE, timestamp_us, source_id, &payload,
                       sizeof(payload), out);
 }

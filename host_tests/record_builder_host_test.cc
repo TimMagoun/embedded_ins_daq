@@ -98,6 +98,14 @@ TEST(RecordBuilderTest, ReturnsZeroForNullConfigHash) {
   EXPECT_EQ(record_builder_config_hash(NULL), 0U);
 }
 
+TEST(RecordBuilderTest, UsesCompactEncodedStructLayout) {
+  EXPECT_EQ(sizeof(binary_record_header_t), 17U);
+  EXPECT_EQ(sizeof(session_start_record_payload_t), 13U);
+  EXPECT_EQ(sizeof(fault_event_record_payload_t), 3U);
+  EXPECT_EQ(sizeof(uart_data_record_payload_prefix_t), 2U);
+  EXPECT_EQ(sizeof(sync_edge_record_payload_t), 1U);
+}
+
 TEST(RecordBuilderTest, RejectsNullSessionStartSession) {
   record_buffer_t record = {};
   runtime_config_t config = SampleConfig();
@@ -138,6 +146,15 @@ TEST(RecordBuilderTest, RejectsNullFaultEventOutput) {
             ESP_ERR_INVALID_ARG);
 }
 
+TEST(RecordBuilderTest, RejectsFaultEventSourceIdOutsideEncodedRange) {
+  record_buffer_t record = {};
+  fault_event_t fault_event = {};
+
+  EXPECT_EQ(record_builder_build_fault_event(1U, 256U, &fault_event,
+                                             HEALTH_STATUS_OK, &record),
+            ESP_ERR_INVALID_ARG);
+}
+
 TEST(RecordBuilderTest, RejectsNullUartDataBytes) {
   record_buffer_t record = {};
 
@@ -162,8 +179,24 @@ TEST(RecordBuilderTest, RejectsOversizedUartData) {
             ESP_ERR_NO_MEM);
 }
 
+TEST(RecordBuilderTest, RejectsUartDataSourceIdOutsideEncodedRange) {
+  record_buffer_t record = {};
+  const std::array<uint8_t, 4> bytes = {0xde, 0xad, 0xbe, 0xef};
+
+  EXPECT_EQ(record_builder_build_uart_data(256U, 2U, bytes.data(), bytes.size(),
+                                           &record),
+            ESP_ERR_INVALID_ARG);
+}
+
 TEST(RecordBuilderTest, RejectsNullSyncEdgeOutput) {
   EXPECT_EQ(record_builder_build_sync_edge(1U, 2U, true, NULL),
+            ESP_ERR_INVALID_ARG);
+}
+
+TEST(RecordBuilderTest, RejectsSyncEdgeSourceIdOutsideEncodedRange) {
+  record_buffer_t record = {};
+
+  EXPECT_EQ(record_builder_build_sync_edge(256U, 2U, true, &record),
             ESP_ERR_INVALID_ARG);
 }
 
@@ -177,12 +210,34 @@ TEST(RecordBuilderTest, EncodesFaultEvent) {
   ASSERT_EQ(record_builder_build_fault_event(3U, 4U, &fault_event,
                                              HEALTH_STATUS_FAULTED, &record),
             ESP_OK);
+
+  const binary_record_header_t header =
+      CopyStructAt<binary_record_header_t>(record, 0);
+  const fault_event_record_payload_t payload =
+      CopyStructAt<fault_event_record_payload_t>(record, sizeof(header));
+
+  EXPECT_EQ(header.record_type, RECORD_TYPE_FAULT_EVENT);
+  EXPECT_EQ(header.source_id, 4U);
+  EXPECT_EQ(header.payload_length, sizeof(payload));
+  EXPECT_EQ(payload.fault_code, FAULT_CODE_CAPTURE_OVERFLOW);
+  EXPECT_EQ(payload.fault_severity, FAULT_SEVERITY_FATAL);
+  EXPECT_EQ(payload.health_status, HEALTH_STATUS_FAULTED);
 }
 
 TEST(RecordBuilderTest, EncodesSyncEdge) {
   record_buffer_t record = {};
 
   ASSERT_EQ(record_builder_build_sync_edge(5U, 6U, false, &record), ESP_OK);
+
+  const binary_record_header_t header =
+      CopyStructAt<binary_record_header_t>(record, 0);
+  const sync_edge_record_payload_t payload =
+      CopyStructAt<sync_edge_record_payload_t>(record, sizeof(header));
+
+  EXPECT_EQ(header.record_type, RECORD_TYPE_SYNC_EDGE);
+  EXPECT_EQ(header.source_id, 5U);
+  EXPECT_EQ(header.payload_length, sizeof(payload));
+  EXPECT_FALSE(payload.edge_polarity);
 }
 
 }  // namespace
