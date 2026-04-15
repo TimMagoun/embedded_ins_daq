@@ -11,8 +11,6 @@ static const uint32_t kCrc32NibbleTable[16] = {
 };
 static const uint32_t kFnvOffsetBasis = 2166136261u;
 static const uint32_t kFnvPrime = 16777619u;
-static const uint32_t kRecordPortMaskBits =
-    sizeof(((session_start_record_payload_t*)0)->enabled_port_mask) * CHAR_BIT;
 
 _Static_assert(sizeof(binary_record_header_t) < RECORD_BUFFER_CAPACITY_BYTES,
                "record header must fit in the output buffer");
