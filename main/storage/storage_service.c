@@ -72,16 +72,53 @@ static esp_err_t set_fault(storage_service_t* service, fault_code_t code,
 }
 
 static esp_err_t copy_text(char* dest, size_t capacity, const char* src) {
+  const size_t src_length = src == NULL ? 0U : strlen(src);
+
   if (dest == NULL || capacity == 0U || src == NULL) {
     return ESP_ERR_INVALID_ARG;
   }
 
-  const int written = snprintf(dest, capacity, "%s", src);
-  if (written < 0 || (size_t)written >= capacity) {
+  if (src_length >= capacity) {
     return ESP_FAIL;
   }
 
+  memcpy(dest, src, src_length + 1U);
   return ESP_OK;
+}
+
+static esp_err_t append_path_suffix(char* dest, size_t capacity,
+                                    const char* base, const char* suffix) {
+  const size_t base_length = base == NULL ? 0U : strlen(base);
+  const size_t suffix_length = suffix == NULL ? 0U : strlen(suffix);
+
+  if (dest == NULL || capacity == 0U || base == NULL || suffix == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  if (base_length + suffix_length >= capacity) {
+    return ESP_FAIL;
+  }
+
+  memcpy(dest, base, base_length);
+  memcpy(dest + base_length, suffix, suffix_length + 1U);
+  return ESP_OK;
+}
+
+static esp_err_t append_session_suffix(char* dest, size_t capacity,
+                                       const char* base, uint32_t session_id,
+                                       const char* suffix) {
+  char formatted_suffix[32];
+  const int written = snprintf(formatted_suffix, sizeof(formatted_suffix),
+                               "%s%06u", suffix, (unsigned)session_id);
+
+  if (dest == NULL || capacity == 0U || base == NULL || suffix == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+  if (written < 0 || (size_t)written >= sizeof(formatted_suffix)) {
+    return ESP_FAIL;
+  }
+
+  return append_path_suffix(dest, capacity, base, formatted_suffix);
 }
 
 static esp_err_t write_format_line(FILE* file, const char* format, ...) {
@@ -292,28 +329,24 @@ esp_err_t storage_service_open_session(storage_service_t* service,
   storage_service_close_session(service);
   clear_paths(service);
 
-  if (snprintf(service->session_dir_path, sizeof(service->session_dir_path),
-               "%s/session_%06u", service->base_path,
-               (unsigned)session->session_id) >=
-      (int)sizeof(service->session_dir_path)) {
+  if (append_session_suffix(
+          service->session_dir_path, sizeof(service->session_dir_path),
+          service->base_path, session->session_id, "/session_") != ESP_OK) {
     return set_fault(service, FAULT_CODE_STORAGE_IO, FAULT_SEVERITY_FATAL,
                      ESP_FAIL);
   }
-  if (snprintf(service->binary_path, sizeof(service->binary_path),
-               "%s/session.bin", service->session_dir_path) >=
-      (int)sizeof(service->binary_path)) {
+  if (append_path_suffix(service->binary_path, sizeof(service->binary_path),
+                         service->session_dir_path, "/session.bin") != ESP_OK) {
     return set_fault(service, FAULT_CODE_STORAGE_IO, FAULT_SEVERITY_FATAL,
                      ESP_FAIL);
   }
-  if (snprintf(service->status_path, sizeof(service->status_path),
-               "%s/status.log", service->session_dir_path) >=
-      (int)sizeof(service->status_path)) {
+  if (append_path_suffix(service->status_path, sizeof(service->status_path),
+                         service->session_dir_path, "/status.log") != ESP_OK) {
     return set_fault(service, FAULT_CODE_STORAGE_IO, FAULT_SEVERITY_FATAL,
                      ESP_FAIL);
   }
-  if (snprintf(service->config_path, sizeof(service->config_path),
-               "%s/config.txt", service->session_dir_path) >=
-      (int)sizeof(service->config_path)) {
+  if (append_path_suffix(service->config_path, sizeof(service->config_path),
+                         service->session_dir_path, "/config.txt") != ESP_OK) {
     return set_fault(service, FAULT_CODE_STORAGE_IO, FAULT_SEVERITY_FATAL,
                      ESP_FAIL);
   }

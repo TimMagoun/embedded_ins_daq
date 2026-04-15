@@ -462,7 +462,6 @@ static esp_err_t run_reference_sd_logger_case(const board_profile_t* board,
       .session_id = kSessionId,
       .start_timestamp_us = clock_now_us(),
   };
-  uint64_t start_timestamp_us = clock_now_us();
   uint64_t deadline_us = clock_now_us() + UART_CAPTURE_OVERALL_TIMEOUT_US;
   size_t active_port_count = 0U;
   esp_err_t status = ESP_OK;
@@ -801,7 +800,7 @@ void app_main(void) {
     abort();
   }
 
-  runtime_banner_log_startup(board);
+  runtime_banner_log_startup();
   ESP_ERROR_CHECK(clock_smoke_start_isr(&s_isr_smoke_state));
 
   if (run_clock_monotonicity_smoke()) {

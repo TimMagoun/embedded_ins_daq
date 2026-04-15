@@ -11,7 +11,9 @@ extern "C" {
 /* Selects whether a port participates in sync or trigger timing flows. */
 typedef enum {
   PORT_TIMING_NONE = 0,
+  PORT_TIMING_DISABLED = PORT_TIMING_NONE,
   PORT_TIMING_SYNC,
+  PORT_TIMING_SYNC_INPUT = PORT_TIMING_SYNC,
   PORT_TIMING_TRIGGER,
 } port_timing_mode_t;
 
@@ -20,6 +22,8 @@ typedef enum {
   SYNC_EDGE_RISING = 0,
   SYNC_EDGE_FALLING,
   SYNC_EDGE_CHANGE,
+  SYNC_EDGE_BOTH = SYNC_EDGE_CHANGE,
+  SYNC_EDGE_NONE,
 } sync_edge_mode_t;
 
 /* Identifies one logical capture port in records and runtime services. */

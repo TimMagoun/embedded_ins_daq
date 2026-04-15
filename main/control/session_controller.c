@@ -79,6 +79,20 @@ bool session_controller_request_start(session_controller_t* controller,
   return true;
 }
 
+esp_err_t session_controller_start_autonomously(
+    session_controller_t* controller) {
+  if (controller == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  if (controller->state != SESSION_READY) {
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  controller->state = SESSION_STARTING;
+  return ESP_OK;
+}
+
 esp_err_t session_controller_mark_recording(session_controller_t* controller) {
   if (controller == NULL) {
     return ESP_ERR_INVALID_ARG;
