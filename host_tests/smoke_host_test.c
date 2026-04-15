@@ -61,5 +61,5 @@ int main(void) {
   fprintf(fp, "host_smoke=pass\n");
   fclose(fp);
 
-  return strcmp("esp32p4", "esp32p4") == 0 ? 0 : 1;
+  return 0;
 }

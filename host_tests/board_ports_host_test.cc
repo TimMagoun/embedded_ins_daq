@@ -25,4 +25,10 @@ TEST(BoardPortsTest, RejectsOutOfRangePortIds) {
   EXPECT_EQ(board_port((port_id_t)(BOARD_PORT_COUNT + 1U)), nullptr);
 }
 
+TEST(BoardPortsTest, ExposesBoardName) { EXPECT_STREQ(board_name(), "LogDAQ"); }
+
+TEST(BoardPortsTest, ExposesBoardConsolePathName) {
+  EXPECT_STREQ(board_console_path_name(), "usb-uart");
+}
+
 }  // namespace

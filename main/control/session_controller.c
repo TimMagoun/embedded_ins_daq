@@ -28,7 +28,8 @@ esp_err_t session_controller_mark_storage_ready(
   if (controller == NULL) {
     return ESP_ERR_INVALID_ARG;
   }
-  if (controller->state != SESSION_BOOT && controller->state != SESSION_READY) {
+
+  if (controller->state != SESSION_BOOT) {
     return ESP_ERR_INVALID_STATE;
   }
 

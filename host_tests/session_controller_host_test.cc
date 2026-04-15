@@ -89,4 +89,70 @@ TEST(SessionControllerTest, RejectsRepeatStartAfterRecordingStarts) {
   EXPECT_EQ(session_controller_state(&controller), SESSION_RECORDING);
 }
 
+TEST(SessionControllerTest, IgnoresNullControllerOnInit) {
+  session_controller_init(NULL);
+}
+
+TEST(SessionControllerTest, RejectsNullStorageReadyController) {
+  EXPECT_EQ(session_controller_mark_storage_ready(NULL), ESP_ERR_INVALID_ARG);
+}
+
+TEST(SessionControllerTest, RejectsNullConfigLoadController) {
+  runtime_config_t valid_config = ValidConfig();
+
+  EXPECT_EQ(session_controller_mark_config_loaded(NULL, &valid_config),
+            ESP_ERR_INVALID_ARG);
+}
+
+TEST(SessionControllerTest, RejectsNullStartRequestController) {
+  runtime_config_t valid_config = ValidConfig();
+
+  EXPECT_FALSE(session_controller_request_start(NULL, &valid_config));
+}
+
+TEST(SessionControllerTest, RejectsNullAutonomousStartController) {
+  EXPECT_EQ(session_controller_start_autonomously(NULL), ESP_ERR_INVALID_ARG);
+}
+
+TEST(SessionControllerTest, RejectsNullMarkRecordingController) {
+  EXPECT_EQ(session_controller_mark_recording(NULL), ESP_ERR_INVALID_ARG);
+}
+
+TEST(SessionControllerTest, IgnoresNullFaultPublishController) {
+  fault_event_t event = {};
+
+  session_controller_publish_fault(NULL, &event);
+}
+
+TEST(SessionControllerTest, ReportsNullControllerStateAsFaulted) {
+  EXPECT_EQ(session_controller_state(NULL), SESSION_FAULTED);
+}
+
+TEST(SessionControllerTest, ReportsNullControllerConfigError) {
+  EXPECT_EQ(session_controller_last_config_error(NULL),
+            RUNTIME_CONFIG_ERROR_NULL_CONFIG);
+}
+
+TEST(SessionControllerTest, RejectsInvalidConfigLoad) {
+  session_controller_t controller = {};
+  runtime_config_t invalid_config = {};
+
+  session_controller_init(&controller);
+  EXPECT_EQ(session_controller_mark_config_loaded(&controller, &invalid_config),
+            ESP_ERR_INVALID_ARG);
+  EXPECT_EQ(session_controller_state(&controller), SESSION_CONFIG_INVALID);
+  EXPECT_EQ(session_controller_last_config_error(&controller),
+            RUNTIME_CONFIG_ERROR_NO_ENABLED_PORTS);
+}
+
+TEST(SessionControllerTest, RejectsStorageReadyAfterStartRequest) {
+  session_controller_t controller = {};
+  runtime_config_t valid_config = ValidConfig();
+
+  session_controller_init(&controller);
+  ASSERT_TRUE(session_controller_request_start(&controller, &valid_config));
+  EXPECT_EQ(session_controller_mark_storage_ready(&controller),
+            ESP_ERR_INVALID_STATE);
+}
+
 }  // namespace
