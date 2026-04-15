@@ -31,10 +31,6 @@ esp_err_t session_controller_mark_config_loaded(
 bool session_controller_request_start(session_controller_t* controller,
                                       const runtime_config_t* config);
 
-/* Starts recording automatically once boot prerequisites are satisfied. */
-esp_err_t session_controller_start_autonomously(
-    session_controller_t* controller);
-
 /* Marks the session as actively recording after startup completes. */
 esp_err_t session_controller_mark_recording(session_controller_t* controller);
 
