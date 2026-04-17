@@ -10,6 +10,99 @@
 
 ______________________________________________________________________
 
+## Progress Snapshot
+
+Status as of `2026-03-29` on branch `tim/exp/superpowers`:
+
+- [x] Atomic stack slice 1: runtime config contract and validation
+
+- [x] Atomic stack slice 2: platform config adapter and fault manager
+
+- [x] Atomic stack slice 3: session controller
+
+- [x] Atomic stack slice 4: record builder and binary log parser
+
+- [x] Atomic stack slice 5: binary and status staging pipelines
+
+- [x] Atomic stack slice 6: UART capture service
+
+- [x] Atomic stack slice 7: host-side storage service and session artifact writes
+
+- [x] Atomic stack slice 8: storage fault normalization and config snapshots
+
+- [x] Atomic stack slice 9: SD-backed autostart integration
+
+- [x] Atomic stack slice 10: updated board wiring profile
+
+- [x] Atomic stack slice 11: Ethernet smoke firmware
+
+- [x] Atomic stack slice 12: device artifact capture tooling
+
+- [x] Atomic stack slice 13: UART HAL adapter and two-port foundations
+
+- [x] Atomic stack slice 14: two-port reference capture
+
+- [x] Atomic stack slice 15: sync input capture plumbing
+
+- [x] Atomic stack slice 16: four-port scaling and overload handling
+
+- [x] Atomic stack slice 17: Ethernet validation docs
+
+- [x] Atomic stack slice 18: firmware debugging skill
+
+- [x] Atomic stack slice 19: handoff notes and implementation-plan snapshot
+
+- Task 1 control-plane foundations were already landed earlier in commit `d1320d0` (`feat: add runtime config and session control foundations`)
+
+- Task 2 binary record contract and RAM staging landed earlier in commit `d17af2f` (`logging tool`)
+
+- Task 3 single-port UART capture landed later as part of commit `4db4f26` (`feat: add SD-backed two-port reference capture`) instead of being preserved as a standalone milestone commit
+
+- Task 4 storage and boot-autostart implementation is now present in the tree and was folded into commit `4db4f26` (`feat: add SD-backed two-port reference capture`) instead of being preserved as a standalone milestone commit
+
+- Task 5 two-port reference capture is now present in the tree and also landed in commit `4db4f26`
+
+- device-case tooling for artifact extraction and monitor backtrace capture landed in commit `7344811` (`feat: capture device case artifacts in tooling`)
+
+- Task 5 device validation is now complete: the user manually ran `two_port_reference_capture`, reached `READY: two_port_reference_capture`, and produced artifacts under `artifacts/runs/device/two_port_reference_capture/20260329_051322`
+
+- fresh verification completed in the current session:
+
+  - `cmake --build build_host`
+  - `ctest --test-dir build_host --output-on-failure`
+  - `source ./tools/setup.sh >/dev/null && idf.py build`
+  - `source ./tools/setup.sh >/dev/null && python3 -m unittest tools.test_monitor tools.test_fatfs_config tools.test_stack_frames`
+  - `source ./tools/setup.sh >/dev/null && idf.py -p /dev/ttyACM0 flash`
+  - `source ./tools/setup.sh >/dev/null && python3 -m tools.monitor --port /dev/ttyACM0 --ready-banner "READY: two_port_reference_capture" --timeout 18 --log artifacts/latest/device/manual_port1_monitor.log`
+  - `python3 tools/parse_binary_log.py artifacts/latest/device/session.bin`
+
+Open items at handoff:
+
+- Task 6 is implemented in the working tree through host coverage and firmware integration, but the on-device `sync_input_capture`, `four_port_stress`, and `four_port_overload_faults` cases have still not been demonstrated with real sync-edge records
+- Task 7 and later milestones remain open
+- one unrelated local edit remains outside the completed commits:
+  - `docs/hardware/esp32-p4-nano/pin-planning.md`
+
+## Handoff Notes
+
+Resume from `tim/exp/superpowers` at or after commit `7344811`.
+
+- do not assume the old single-port `PORT1` logger path still exists; `main/app_main.c` now drives an SD-backed two-port reference capture flow
+- `PORT1` is currently treated as the lower-rate GNSS-style reference port at `9600` baud and `PORT2` as the higher-rate IMU-style reference port at `921600` baud in the default runtime source
+- session start now depends on `session_controller_mark_storage_ready`, `session_controller_mark_config_loaded`, and `session_controller_start_autonomously`
+- host coverage now exists for:
+  - storage session creation and normalized write faults
+  - UART capture chunking and overflow behavior
+  - two-port isolation and mixed-baud runtime config validation
+- `tools/run_case.py` now extracts `session.bin` and named artifact files from `SESSION_BIN_HEX` / `ARTIFACT_HEX` monitor output
+- `tools/monitor.py` now drains briefly after panic or GDBStub markers so backtraces are not truncated in saved logs
+- Task 5 hardware validation was manually completed by the user on `2026-03-29`; the recorded artifact path is `artifacts/runs/device/two_port_reference_capture/20260329_051322`
+- the first useful remaining device verification step is now Task 6:
+  - `python3 -m tools.run_case --case sync_input_capture`
+  - `python3 -m tools.run_case --case four_port_stress`
+  - `python3 -m tools.run_case --case four_port_overload_faults`
+- if the next session needs board wiring context, inspect the uncommitted note updates in `docs/hardware/esp32-p4-nano/pin-planning.md` before deciding whether to keep or discard them
+
 ## Inherited Baseline
 
 The current codebase already provides this platform baseline, which should be evaluated as the starting point for this plan:
@@ -165,7 +258,7 @@ The new runtime layer must align with revision-1 interface goals rather than cur
 
 - Modify: `main/app_main.c`
 
-- [ ] **Step 1: Write the failing host tests for config, fault normalization, and session transitions**
+- [x] **Step 1: Write the failing host tests for config, fault normalization, and session transitions**
 
 ```cpp
 TEST(RuntimeConfigTest, RejectsTriggerPulseWidthNotLessThanPeriod);
@@ -178,7 +271,7 @@ TEST(SessionControllerTest, BlocksStartWhenConfigInvalid);
 TEST(SessionControllerTest, TransitionsToFaultedOnFatalFault);
 ```
 
-- [ ] **Step 2: Run the host tests to verify the control plane does not exist yet**
+- [x] **Step 2: Run the host tests to verify the control plane does not exist yet**
 
 ```bash
 cmake -S host_tests -B build_host
@@ -188,7 +281,7 @@ ctest --test-dir build_host --output-on-failure -R "runtime_config|board_ports|f
 
 Expected: configure or compile failure because the new test targets and implementation files are not present yet.
 
-- [ ] **Step 3: Add the minimal shared contracts and control-plane implementations**
+- [x] **Step 3: Add the minimal shared contracts and control-plane implementations**
 
 ```c
 typedef enum {
@@ -215,7 +308,7 @@ bool session_controller_request_start(session_controller_t* controller,
                                       const runtime_config_t* config);
 ```
 
-- [ ] **Step 4: Integrate the control plane into the boot path and rerun the focused host suite**
+- [x] **Step 4: Integrate the control plane into the boot path and rerun the focused host suite**
 
 ```bash
 cmake --build build_host
@@ -224,7 +317,7 @@ ctest --test-dir build_host --output-on-failure -R "runtime_config|fault_manager
 
 Expected: all control-plane tests pass; `app_main` still performs clock smoke, while the runtime path now uses a fixed board-port map plus the simplified runtime-config contract.
 
-- [ ] **Step 5: Commit the control-plane baseline**
+- [x] **Step 5: Commit the control-plane baseline**
 
 ```bash
 git add main/CMakeLists.txt host_tests/CMakeLists.txt main/app_main.c main/include/board_ports.h main/include/runtime_types.h main/include/runtime_config.h main/include/fault_manager.h main/include/session_controller.h main/platform/board_ports.c main/control/runtime_config.c main/control/fault_manager.c main/control/session_controller.c host_tests/board_ports_host_test.cc host_tests/runtime_config_host_test.cc host_tests/fault_manager_host_test.cc host_tests/session_controller_host_test.cc
@@ -259,7 +352,7 @@ git commit -m "feat: add runtime config and session control foundations"
 
 - Modify: `README.md`
 
-- [ ] **Step 1: Write the failing tests and parser fixture expectations for binary records**
+- [x] **Step 1: Write the failing tests and parser fixture expectations for binary records**
 
 ```cpp
 TEST(RecordBuilderTest, EncodesSessionStartWithConfigHashAndPortSummary);
@@ -274,7 +367,7 @@ assert records[1]["type"] == "fault_event"
 assert records[2]["type"] == "uart_data"
 ```
 
-- [ ] **Step 2: Run the tests to verify record and pipeline modules are missing**
+- [x] **Step 2: Run the tests to verify record and pipeline modules are missing**
 
 ```bash
 cmake --build build_host --target record_builder_host_test binary_log_pipeline_host_test
@@ -283,7 +376,7 @@ ctest --test-dir build_host --output-on-failure -R "record_builder|binary_log_pi
 
 Expected: build failure because the logging modules and parser do not exist yet.
 
-- [ ] **Step 3: Implement the minimal record envelope, record builders, RAM staging pipeline, and parser**
+- [x] **Step 3: Implement the minimal record envelope, record builders, RAM staging pipeline, and parser**
 
 ```c
 typedef struct {
@@ -303,7 +396,7 @@ esp_err_t binary_log_pipeline_append(binary_log_pipeline_t* pipeline,
                                      fault_event_t* overflow_fault);
 ```
 
-- [ ] **Step 4: Verify encode/decode, staging, and parser behavior**
+- [x] **Step 4: Verify encode/decode, staging, and parser behavior**
 
 ```bash
 cmake --build build_host
@@ -313,7 +406,9 @@ python3 tools/parse_binary_log.py host_tests/fixtures/session_example.bin
 
 Expected: host tests pass and the parser prints ordered decoded records rather than failing on header parsing.
 
-- [ ] **Step 5: Commit the record-contract milestone**
+- [x] **Step 5: Commit the record-contract milestone**
+
+Current note: this milestone landed in commit `d17af2f` (`logging tool`).
 
 ```bash
 git add main/CMakeLists.txt host_tests/CMakeLists.txt README.md main/include/record_builder.h main/include/binary_log_pipeline.h main/include/status_log_pipeline.h main/logging/record_builder.c main/logging/binary_log_pipeline.c main/logging/status_log_pipeline.c host_tests/record_builder_host_test.cc host_tests/binary_log_pipeline_host_test.cc tools/parse_binary_log.py
@@ -340,7 +435,7 @@ git commit -m "feat: add binary record format and RAM log pipeline"
 
 - Modify: `main/app_main.c`
 
-- [ ] **Step 1: Write the failing tests for ring-buffer accounting, chunk boundaries, and overflow**
+- [x] **Step 1: Write the failing tests for ring-buffer accounting, chunk boundaries, and overflow**
 
 ```cpp
 TEST(UartCaptureServiceTest, PublishesChunkTimestampFromFirstByteArrival);
@@ -348,7 +443,7 @@ TEST(UartCaptureServiceTest, PreservesBytesAcrossWraparound);
 TEST(UartCaptureServiceTest, EmitsOverflowFaultWhenRingBufferFills);
 ```
 
-- [ ] **Step 2: Run the tests to confirm the UART capture service is not implemented**
+- [x] **Step 2: Run the tests to confirm the UART capture service is not implemented**
 
 ```bash
 cmake --build build_host --target uart_capture_service_host_test
@@ -357,7 +452,7 @@ ctest --test-dir build_host --output-on-failure -R "uart_capture_service"
 
 Expected: build failure because the UART capture module and test target are missing.
 
-- [ ] **Step 3: Implement one-port UART capture with chunk publication into the existing pipeline**
+- [x] **Step 3: Implement one-port UART capture with chunk publication into the existing pipeline**
 
 ```c
 typedef struct {
@@ -376,7 +471,7 @@ esp_err_t uart_capture_service_on_rx_bytes(uart_capture_service_t* service,
                                            size_t length);
 ```
 
-- [ ] **Step 4: Verify host behavior and device-side RAM-only capture**
+- [x] **Step 4: Verify host behavior and device-side RAM-only capture**
 
 ```bash
 cmake --build build_host
@@ -386,7 +481,9 @@ python3 -m tools.run_case --case port1_raw_capture
 
 Expected: host tests pass, the device case produces non-zero UART data records in the RAM-backed session artifact, and no fatal control-plane regression appears in the monitor log.
 
-- [ ] **Step 5: Commit the single-port raw capture milestone**
+- [x] **Step 5: Commit the single-port raw capture milestone**
+
+Current note: the single-port capture path was later subsumed into the SD-backed reference-capture milestone and is present in commit `4db4f26` (`feat: add SD-backed two-port reference capture`) rather than as a standalone historical commit.
 
 ```bash
 git add main/CMakeLists.txt host_tests/CMakeLists.txt main/app_main.c main/include/uart_hal_adapter.h main/include/uart_capture_service.h main/capture/uart_hal_adapter.c main/capture/uart_capture_service.c host_tests/uart_capture_service_host_test.cc
@@ -419,7 +516,7 @@ git commit -m "feat: add single-port UART capture pipeline"
 
 - Modify: `README.md`
 
-- [ ] **Step 1: Write the failing storage and auto-start tests**
+- [x] **Step 1: Write the failing storage and auto-start tests**
 
 ```cpp
 TEST(StorageServiceTest, CreatesSessionFolderWithBinaryStatusAndConfigFiles);
@@ -428,7 +525,7 @@ TEST(SessionControllerTest, EntersReadyOnlyAfterStorageMountAndConfigLoad);
 TEST(SessionControllerTest, StartsRecordingAutomaticallyOnBootWhenConfigValid);
 ```
 
-- [ ] **Step 2: Run the tests to verify SD storage and auto-start are not implemented**
+- [x] **Step 2: Run the tests to verify SD storage and auto-start are not implemented**
 
 ```bash
 cmake --build build_host --target storage_service_host_test session_controller_host_test
@@ -437,7 +534,7 @@ ctest --test-dir build_host --output-on-failure -R "storage_service|session_cont
 
 Expected: failures in the new storage tests and in any new auto-start expectations.
 
-- [ ] **Step 3: Implement the storage abstraction and wire boot flow through mount, config load, session open, and record start**
+- [x] **Step 3: Implement the storage abstraction and wire boot flow through mount, config load, session open, and record start**
 
 ```c
 esp_err_t storage_service_mount(storage_service_t* service);
@@ -450,7 +547,7 @@ esp_err_t storage_service_copy_config_snapshot(storage_service_t* service,
                                                const runtime_config_t* config);
 ```
 
-- [ ] **Step 4: Verify host tests and the first SD-backed device session**
+- [x] **Step 4: Verify host tests and the first SD-backed device session**
 
 ```bash
 cmake --build build_host
@@ -461,12 +558,16 @@ python3 tools/parse_binary_log.py artifacts/latest/device/port1_sd_logger/sessio
 
 Expected: session folder contains `session.bin`, a text status log, and a copied config; boot reaches recording without manual start when the SD card and config are valid.
 
-- [ ] **Step 5: Commit the SD-backed logger milestone**
+Current note: the standalone `port1_sd_logger` case was not rerun in this session, but the same SD-backed session-open, artifact-write, and copied-config path was validated on hardware through the later `two_port_reference_capture` device run and parsed `session.bin` artifact.
+
+- [x] **Step 5: Commit the SD-backed logger milestone**
 
 ```bash
 git add main/CMakeLists.txt host_tests/CMakeLists.txt README.md main/app_main.c main/include/storage_service.h main/storage/storage_service.c main/control/session_controller.c main/logging/binary_log_pipeline.c main/logging/status_log_pipeline.c host_tests/storage_service_host_test.cc tools/run_case.py
 git commit -m "feat: add SD-backed session storage and autostart"
 ```
+
+Current note: this milestone was not preserved as its own historical commit. The resulting implementation shipped in commit `4db4f26` (`feat: add SD-backed two-port reference capture`).
 
 ## Task 5: Two-Port Reference Capture
 
@@ -488,7 +589,7 @@ git commit -m "feat: add SD-backed session storage and autostart"
 
 - Modify: `README.md`
 
-- [ ] **Step 1: Write the failing tests for two-port isolation and mixed configuration**
+- [x] **Step 1: Write the failing tests for two-port isolation and mixed configuration**
 
 ```cpp
 TEST(TwoPortCaptureTest, KeepsPortCountersAndChunksIsolated);
@@ -496,7 +597,7 @@ TEST(TwoPortCaptureTest, SupportsIndependentBaudRatesPerPort);
 TEST(RuntimeConfigTest, AcceptsReferenceGnssAndImuPortProfileSet);
 ```
 
-- [ ] **Step 2: Run the tests to verify the two-port reference milestone does not exist yet**
+- [x] **Step 2: Run the tests to verify the two-port reference milestone does not exist yet**
 
 ```bash
 cmake --build build_host --target two_port_capture_host_test runtime_config_host_test
@@ -505,7 +606,7 @@ ctest --test-dir build_host --output-on-failure -R "two_port_capture|runtime_con
 
 Expected: failures because the capture path is still single-port.
 
-- [ ] **Step 3: Extend the UART path from one port to the `PORT1` GNSS plus `PORT2` IMU reference configuration**
+- [x] **Step 3: Extend the UART path from one port to the `PORT1` GNSS plus `PORT2` IMU reference configuration**
 
 ```c
 esp_err_t uart_capture_service_init_ports(uart_capture_service_t* service,
@@ -514,7 +615,7 @@ uart_capture_stats_t uart_capture_service_get_stats(const uart_capture_service_t
                                                     port_id_t port_id);
 ```
 
-- [ ] **Step 4: Verify the first real dual-sensor logging setup**
+- [x] **Step 4: Verify the first real dual-sensor logging setup**
 
 ```bash
 cmake --build build_host
@@ -525,12 +626,16 @@ python3 tools/parse_binary_log.py artifacts/latest/device/two_port_reference_cap
 
 Expected: the session artifact contains isolated UART records for `PORT1` and `PORT2` with independent counters and no cross-port corruption.
 
-- [ ] **Step 5: Commit the two-port reference milestone**
+Current note: this validation is now complete. On `2026-03-29`, the user manually ran `two_port_reference_capture`, reached `READY: two_port_reference_capture`, and produced artifacts under `artifacts/runs/device/two_port_reference_capture/20260329_051322`.
+
+- [x] **Step 5: Commit the two-port reference milestone**
 
 ```bash
 git add main/CMakeLists.txt host_tests/CMakeLists.txt README.md main/app_main.c main/control/runtime_config.c main/capture/uart_hal_adapter.c main/capture/uart_capture_service.c host_tests/two_port_capture_host_test.cc
 git commit -m "feat: add two-port reference capture"
 ```
+
+Current note: the implemented milestone landed as commit `4db4f26` (`feat: add SD-backed two-port reference capture`).
 
 ## Task 6: Four-Port Scaling, Loss Handling, And Sync Input Capture
 
@@ -556,7 +661,7 @@ git commit -m "feat: add two-port reference capture"
 
 - Modify: `host_tests/CMakeLists.txt`
 
-- [ ] **Step 1: Write the failing tests for four-port scaling, retention sizing, sync edge normalization, and overload accounting**
+- [x] **Step 1: Write the failing tests for four-port scaling, retention sizing, sync edge normalization, and overload accounting**
 
 ```cpp
 TEST(SyncCaptureServiceTest, PreservesObservedEdgePolarity);
@@ -567,7 +672,7 @@ TEST(UartCaptureServiceTest, SizesRetentionForFiveHundredMillisecondsAtConfigure
 TEST(UartCaptureServiceTest, OverflowOnOnePortDoesNotCorruptAnotherPort);
 ```
 
-- [ ] **Step 2: Run the tests to confirm sync capture and four-port scaling are not present**
+- [x] **Step 2: Run the tests to confirm sync capture and four-port scaling are not present**
 
 ```bash
 cmake --build build_host --target sync_capture_service_host_test runtime_config_host_test
@@ -576,7 +681,7 @@ ctest --test-dir build_host --output-on-failure -R "sync_capture_service|runtime
 
 Expected: new sync tests fail before implementation.
 
-- [ ] **Step 3: Extend runtime config to four ports, then implement interrupt-driven sync capture**
+- [x] **Step 3: Extend runtime config to four ports, then implement interrupt-driven sync capture**
 
 ```c
 esp_err_t sync_hal_adapter_configure_input(port_id_t port_id,
@@ -812,3 +917,8 @@ Status as of `2026-03-29` on branch `tim/exp/superpowers`:
 - [x] Atomic stack slice 2: platform config adapter and fault manager
 - [x] Atomic stack slice 3: session controller
 - [x] Atomic stack slice 4: record builder and binary log parser
+- [x] Atomic stack slice 5: binary and status staging pipelines
+- [x] Atomic stack slice 6: UART capture service
+- [x] Atomic stack slice 7: host-side storage service and session artifact writes
+- [x] Atomic stack slice 8: storage fault normalization and config snapshots
+- [x] Atomic stack slice 9: SD-backed autostart integration

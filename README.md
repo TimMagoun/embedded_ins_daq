@@ -167,6 +167,12 @@ For the clock-specific bring-up check, use:
 python3 -m tools.run_case --case clock_monotonicity
 ```
 
+For the two-port SD-backed reference capture milestone, use:
+
+```bash
+python3 -m tools.run_case --case two_port_reference_capture
+```
+
 Artifacts land in:
 
 - `artifacts/runs/device/<case_name>/<timestamp>`
@@ -179,6 +185,7 @@ Each device case captures:
 - the built `elf`
 - the built `bin` images when present
 - a decoded panic report when a backtrace is found
+- extracted artifact files emitted by the firmware, including `session.bin` when present
 
 ## Crash Workflow
 
