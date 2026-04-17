@@ -19,6 +19,7 @@ RUN apt-get update \
     ca-certificates \
     cppcheck \
     curl \
+    gh \
     git \
     openssh-client \
     ripgrep \
@@ -48,11 +49,7 @@ RUN groupadd --gid "${USER_GID}" "${USERNAME}" \
     && usermod -aG dialout "${USERNAME}" \
     && groupadd -f plugdev \
     && usermod -aG plugdev "${USERNAME}" \
+    && mkdir -p "/home/${USERNAME}" \
     && chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}"
-
-COPY .devcontainer/source_env.sh /etc/profile.d/source_env.sh
-RUN chmod 0755 /etc/profile.d/source_env.sh && \
-    echo '. /etc/profile.d/source_env.sh' >> /etc/bash.bashrc && \
-    echo '. /etc/profile.d/source_env.sh' > /etc/zsh/zshrc
 
 WORKDIR /workspaces/embedded_ins_daq

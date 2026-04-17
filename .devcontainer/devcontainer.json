@@ -6,8 +6,7 @@
   },
   "workspaceFolder": "/workspaces/embedded_ins_daq",
   "remoteUser": "vscode",
-  "updateRemoteUserUID": true,
-  "overrideCommand": false,
+  "updateRemoteUserUID": false,
   "runArgs": [
     "--device-cgroup-rule=c 166:* rmw",
     "--device-cgroup-rule=c 188:* rmw",
@@ -19,6 +18,22 @@
   },
   "mounts": [
     "source=${localEnv:HOME}/.codex,target=/home/vscode/.codex,type=bind",
-    "source=/dev,target=/dev,type=bind"
-  ]
+    "source=${localEnv:HOME}/.dotfile/gitconfig,target=/home/vscode/.gitconfig,type=bind,readonly",
+    "source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind,readonly",
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
+  ],
+  // Install dev extensions:
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "llvm-vs-code-extensions.vscode-clangd",
+        "openai.chatgpt",
+        "github.vscode-pull-request-github",
+        "eamodio.gitlens",
+        "timonwong.shellcheck",
+        "mermaidchart.vscode-mermaid-chart"
+      ]
+    }
+  },
+  "postCreateCommand": "echo 'source /opt/esp/idf/export.sh' >> ~/.bashrc"
 }

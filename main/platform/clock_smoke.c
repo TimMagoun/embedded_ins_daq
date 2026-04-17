@@ -42,7 +42,6 @@ esp_err_t clock_smoke_start_isr(clock_smoke_isr_state_t* state) {
       .flags =
           {
               .intr_shared = 0,
-              .allow_pd = 0,
           },
   };
   gptimer_event_callbacks_t callbacks = {

@@ -53,3 +53,5 @@ build_host_coverage/
 artifacts/
 esp.env
 sdkconfig
+
+.DS_Store
