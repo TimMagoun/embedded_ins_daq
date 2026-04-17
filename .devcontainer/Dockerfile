@@ -12,6 +12,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV IDF_PATH=/opt/esp/idf
 ENV HOME=/home/vscode
+ENV SHELL=/bin/zsh
 
 # Keep the image small: add only the tools this repo needs for day-to-day work.
 RUN apt-get update \
@@ -45,11 +46,29 @@ RUN npm install -g "@openai/codex@${CODEX_VERSION}"
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
 RUN groupadd --gid "${USER_GID}" "${USERNAME}" \
-    && useradd --uid "${USER_UID}" --gid "${USER_GID}" --home-dir "/home/${USERNAME}" --no-create-home -s /bin/bash "${USERNAME}" \
+    && useradd --uid "${USER_UID}" --gid "${USER_GID}" --home-dir "/home/${USERNAME}" --no-create-home -s /bin/zsh "${USERNAME}" \
     && usermod -aG dialout "${USERNAME}" \
     && groupadd -f plugdev \
     && usermod -aG plugdev "${USERNAME}" \
     && mkdir -p "/home/${USERNAME}" \
     && chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}"
+
+RUN curl -fsSL https://github.com/deluan/zsh-in-docker/releases/download/v1.2.1/zsh-in-docker.sh \
+    | HOME="/home/${USERNAME}" sh -s -- \
+        -t maran \
+        -p git \
+        -x \
+        -a 'if ! output=$(source /opt/esp/idf/export.sh 2>&1); then echo "Error sourcing esp-idf export script:"; echo "$output"; fi' \
+    && cat > "/home/${USERNAME}/.bashrc" <<'EOF'
+if [ -f /opt/esp/idf/export.sh ]; then
+    . /opt/esp/idf/export.sh
+fi
+EOF
+RUN cat > "/home/${USERNAME}/.bash_profile" <<'EOF'
+if [ -f "$HOME/.bashrc" ]; then
+    . "$HOME/.bashrc"
+fi
+EOF
+RUN chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}"
 
 WORKDIR /workspaces/embedded_ins_daq

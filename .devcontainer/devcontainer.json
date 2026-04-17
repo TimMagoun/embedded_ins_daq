@@ -35,5 +35,4 @@
       ]
     }
   },
-  "postCreateCommand": "echo 'source /opt/esp/idf/export.sh' >> ~/.bashrc"
 }
