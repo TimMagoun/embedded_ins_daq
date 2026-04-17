@@ -26,17 +26,37 @@ typedef enum {
 /* Captures the user-selected runtime behavior for one logical data port. */
 typedef struct {
   bool enabled;
+  int uart_port;
   int baud_rate;
   port_timing_mode_t timing_mode;
   sync_edge_mode_t sync_edge_mode;
+  bool enable_sync_input;
   uint32_t trigger_period_us;
   uint32_t trigger_pulse_width_us;
 } runtime_port_config_t;
 
 /* Carries the validated runtime session contract used at boot. */
 typedef struct {
+  size_t port_count;
   runtime_port_config_t ports[BOARD_PORT_COUNT];
 } runtime_config_t;
+
+/* Captures the pre-board capability runtime source for one logical port. */
+typedef struct {
+  bool enabled;
+  int baud_rate;
+  port_timing_mode_t timing_mode;
+  sync_edge_mode_t sync_edge_mode;
+  bool enable_sync_input;
+  uint32_t trigger_period_us;
+  uint32_t trigger_pulse_width_us;
+} runtime_config_source_port_t;
+
+/* Carries the operator-selected runtime source data. */
+typedef struct {
+  size_t port_count;
+  runtime_config_source_port_t ports[BOARD_PORT_COUNT];
+} runtime_config_source_t;
 
 /* Returns the built-in runtime session contract used until external config
  * exists. */

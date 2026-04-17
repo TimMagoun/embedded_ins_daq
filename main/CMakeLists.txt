@@ -1,17 +1,41 @@
 idf_component_register(
     SRCS
         "app_main.c"
+        "capture/sync_capture_service.c"
+        "capture/sync_hal_adapter.c"
+        "capture/uart_capture_service.c"
+        "capture/uart_hal_adapter.c"
         "control/fault_manager.c"
         "control/runtime_config.c"
+        "control/platform_config_adapter.c"
         "platform/board_ports.c"
+        "platform/board_profile.c"
         "control/session_controller.c"
+        "logging/binary_log_pipeline.c"
+        "logging/log_pipeline_base.c"
         "logging/record_builder.c"
+        "logging/status_log_pipeline.c"
         "platform/clock_probe.c"
         "platform/clock_smoke.c"
         "platform/clock_service.c"
+        "platform/ethernet_smoke.c"
+        "platform/ethernet_smoke_config.c"
         "platform/runtime_banner.c"
+        "storage/storage_service.c"
     INCLUDE_DIRS
         "include"
+    REQUIRES
+        esp_driver_gptimer
+        esp_driver_sdmmc
+        esp_driver_uart
+        esp_event
+        esp_eth
+        esp_netif
+        esp_system
+        esp_timer
+        fatfs
+        freertos
+        log
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE
