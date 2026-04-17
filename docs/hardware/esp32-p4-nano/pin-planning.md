@@ -38,6 +38,10 @@ Record here during bring-up:
 - schematic source:
 - pinout source:
 - ESP-IDF version:
+- confirmed schematic notes:
+  - external FT232 validation wiring: `FT232 TX -> GPIO21`, `FT232 RX -> GPIO20`, shared `GND`
+  - corrected two-port bench wiring: `PORT1 UART1 TX=20 RX=21 SYNC=22`, `PORT2 UART2 TX=33 RX=32 SYNC=36`
+  - onboard TF slot: `D0=GPIO39`, `D1=GPIO40`, `D2=GPIO41`, `D3=GPIO42`, `CMD=GPIO44`, `CLK=GPIO43`
 
 ______________________________________________________________________
 
@@ -87,8 +91,8 @@ Checklist:
 Record mapping:
 
 - console UART: `UART0` via onboard `USB-C` console path, provisional firmware GPIO view `TX=37`, `RX=38`
-- sensor port 1 UART: provisional `UART1`, `TX=20`, `RX=21`
-- sensor port 2 UART: provisional `UART2`, `TX=23`, `RX=24`
+- sensor port 1 UART: validated `UART1`, `TX=20`, `RX=21`
+- sensor port 2 UART: validated `UART2`, `TX=33`, `RX=32`
 - sensor port 3 UART:
 - sensor port 4 UART:
 
@@ -118,7 +122,7 @@ Checklist:
 Record mapping:
 
 - port 1 SYNC: provisional `GPIO22`
-- port 2 SYNC: provisional `GPIO25`
+- port 2 SYNC: validated `GPIO36`
 - port 3 SYNC:
 - port 4 SYNC:
 
@@ -148,10 +152,11 @@ Checklist:
 
 Record details:
 
-- SDMMC slot used: provisional `SDMMC_HOST_SLOT_1` on the onboard TF slot
+- TF slot signal map from schematic: `CLK=GPIO43`, `CMD=GPIO44`, `D0=GPIO39`, `D1=GPIO40`, `D2=GPIO41`, `D3=GPIO42`
+- SDMMC slot used: not yet finalized in firmware; these pins match the ESP32-P4 default SDMMC pin set
 - card detect available:
 - expected filesystem:
-- tested card types:
+- tested card types: `64 GB` microSD card present during bring-up
 
 Questions to answer:
 
