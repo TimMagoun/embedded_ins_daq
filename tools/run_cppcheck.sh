@@ -5,11 +5,6 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
 
-if [[ -z "${IDF_PATH:-}" && -f "${REPO_ROOT}/esp.env" ]]; then
-    # shellcheck source=/dev/null
-    source "${REPO_ROOT}/esp.env"
-fi
-
 fail() {
     printf '[cppcheck] ERROR: %s\n' "$*" >&2
     exit 1
@@ -86,12 +81,9 @@ run_embedded_build() {
     local project_dir=${REPO_ROOT}/main
     local tmp_file
 
-    # shellcheck source=/dev/null
-    source "${REPO_ROOT}/tools/setup.sh"
-    (
-        cd "${REPO_ROOT}" \
-            && idf.py build
-    )
+    [[ -n "${IDF_PATH:-}" ]] || fail "IDF_PATH is not set. Open the devcontainer before running this script."
+
+    (cd "${REPO_ROOT}" && idf.py build)
 
     [[ -f "${project_file}" ]] || fail "Missing required file: ${project_file}. Run idf.py build first."
 

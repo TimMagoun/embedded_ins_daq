@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 /*
- * Clock probe helpers are shared by startup diagnostics and host unit tests.
+ * Clock probe helpers are shared by startup diagnostics and native unit tests.
  * They are not tied to ESP-IDF drivers and keep the monotonicity checks
  * portable.
  */

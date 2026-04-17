@@ -7,10 +7,10 @@ This repository keeps the default firmware workflow on standard `ESP-IDF` comman
 - `idf.py build`
 - `idf.py flash`
 - `idf.py monitor`
-- `cmake --build <host_build_dir>`
-- `ctest --test-dir <host_build_dir>`
+- `cmake --build <native_build_dir>`
+- `ctest --test-dir <native_build_dir>`
 
-Small helper scripts exist only where they add repeatability for environment validation, artifact capture, and device-case orchestration.
+The repo is designed for in-container development. Open it in the devcontainer and the shell will already have ESP-IDF and Codex available.
 
 Python developer tooling is managed with `uv`. Formatting and pre-commit hooks are configured for:
 
@@ -19,54 +19,23 @@ Python developer tooling is managed with `uv`. Formatting and pre-commit hooks a
 - Markdown with `mdformat`
 - C/C++ with `clang-format` using Google style
 - C/C++ static analysis with `cppcheck`
-- host unit tests with `gtest` orchestrated through `ctest`
-- host test coverage with `gcovr` enforced above 90%
+- native unit tests with `gtest` orchestrated through `ctest`
+- native test coverage with `gcovr` enforced above 90%
 
 ## Quickstart
 
-### 1. Create a repo-local environment file
+### 1. Open the devcontainer
 
-Copy [esp.env.example](/home/agent/workspace/embedded_ins_daq/esp.env.example) to `esp.env` and set:
+Use your editor's devcontainer support to open the repository in the container. The container image includes:
 
-- `IDF_PATH` to your local ESP-IDF checkout
-- `BOARD_PORT` to the default serial device for your board
+- ESP-IDF at `/opt/esp/idf`
+- Codex CLI
+- `uv`
+- the basic host tools needed by this repo
 
-Example:
+Interactive shells inside the container automatically source the ESP-IDF environment.
 
-```bash
-cp esp.env.example esp.env
-```
-
-### 2. Load the environment
-
-Run:
-
-```bash
-source ./tools/setup.sh
-```
-
-The setup script:
-
-- loads variables from `esp.env` into the current shell
-- sources `${IDF_PATH}/export.sh`
-- makes `idf.py` and the ESP-IDF Python environment available to subsequent commands
-
-Run it again in each new shell before using ESP-IDF or device tools.
-
-### 3. Validate the environment
-
-```bash
-./tools/bootstrap_env.sh
-```
-
-The bootstrap script verifies:
-
-- the active `ESP-IDF` version is new enough for this project
-- `esp32p4` is supported by the active toolchain
-- desktop tooling like `cmake` and `ctest` is present
-- `uv` is present for the repo's Python tooling
-
-### 3a. Install the developer tooling
+### 2. Install the developer tooling
 
 Install `uv` first if it is not already on your `PATH`, then sync the repo-local Python environment:
 
@@ -90,7 +59,7 @@ The repo hook suite also includes `cppcheck`, which expects the firmware build t
 be configured so it can reuse `build/compile_commands.json` for the embedded pass.
 For a broader local pass, run `./tools/run_cppcheck.sh --strict`.
 
-### 4. Select the target
+### 3. Select the target
 
 In a clean workspace, set the target once:
 
@@ -100,7 +69,7 @@ idf.py set-target esp32p4
 
 The project defaults in [sdkconfig.defaults](/home/agent/workspace/embedded_ins_daq/sdkconfig.defaults) keep the ESP32-P4 v1.3 compatibility settings required by this board.
 
-### 5. Build the firmware
+### 4. Build the firmware
 
 ```bash
 idf.py build
@@ -108,17 +77,17 @@ idf.py build
 
 The bring-up firmware emits clear ready banners on `UART0`, which remains the default console and panic-output path during bring-up.
 
-### 6. Run the host smoke test
+### 5. Run the native smoke test
 
-Configure the small desktop test target once:
+Configure the small native test target once:
 
 ```bash
-cmake -S host_tests -B build_host
-cmake --build build_host
-ctest --test-dir build_host
+cmake -S host_tests -B build_native
+cmake --build build_native
+ctest --test-dir build_native
 ```
 
-The host test suite uses `gtest`, with `ctest` used as the top-level runner. Host test artifacts are written under `build_host/artifacts/<test_name>`.
+The native test suite uses `gtest`, with `ctest` used as the top-level runner. Native test artifacts are written under `build_native/artifacts/<test_name>`.
 
 Binary log fixtures can be decoded with:
 
@@ -126,7 +95,7 @@ Binary log fixtures can be decoded with:
 python3 tools/parse_binary_log.py host_tests/fixtures/session_example.bin
 ```
 
-### 7. Flash and monitor directly
+### 6. Flash and monitor directly
 
 Use standard `ESP-IDF` commands whenever you want the manual workflow:
 
@@ -140,7 +109,7 @@ The first-line debug flow is:
 serial boot log -> ready banner timeout -> saved panic log -> decoded backtrace -> GDBStub session when interactive inspection is needed
 ```
 
-### 8. Capture serial output to both the terminal and a log
+### 7. Capture serial output to both the terminal and a log
 
 Use the repo tool when you want a reusable, non-interactive log file while still seeing the live monitor stream:
 
@@ -149,11 +118,10 @@ idf.py -p /dev/ttyACM0 flash
 python3 -m tools.monitor --ready-banner "READY: platform_smoke"
 ```
 
-By default this uses `BOARD_PORT` from `esp.env` and writes the latest monitor log to `artifacts/latest/device/monitor.log`.
-It assumes `source ./tools/setup.sh` has already been run in the current shell.
+By default this uses `BOARD_PORT` from the devcontainer and writes the latest monitor log to `artifacts/latest/device/monitor.log`.
 The tool passes `--disable-auto-color` to `idf.py monitor` so the saved log stays easy to parse while the same stream remains visible in the terminal.
 
-### 9. Run the platform smoke case with artifact capture
+### 8. Run the platform smoke case with artifact capture
 
 When you want a repeatable case folder with logs and copied build outputs, use:
 
@@ -194,8 +162,7 @@ This keeps crash decoding non-GUI and tied to the exact built `elf`.
 
 ## Notes
 
-- Run `source ./tools/setup.sh` in each new shell before ESP-IDF or device commands.
-- `./tools/bootstrap_env.sh` can be rerun any time after setup to revalidate the active toolchain.
+- Open the repository in the devcontainer before running ESP-IDF or device commands.
 - `UART0` is reserved for console, boot logs, flashing recovery, and panic output during early bring-up.
 - `platform_smoke` is the default bring-up case name for step 2.
 - `clock_monotonicity` is a separate device-side smoke banner emitted after the hardware clock passes both task-context and interrupt-context checks.

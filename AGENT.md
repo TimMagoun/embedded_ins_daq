@@ -10,9 +10,9 @@
 
 ## 2. Environment & Tooling Workflow
 
-- **The Setup Contract:** You MUST run `source ./tools/setup.sh` in the current shell before executing *any* ESP-IDF or device-facing command.
-- **Validation:** Use `./tools/bootstrap_env.sh` (only after setup) to validate the environment, `esp32p4` target support, and desktop tools.
-- **Local Config:** Keep machine-specific settings (`IDF_PATH`, `BOARD_PORT`) in the gitignored `esp.env` file.
+- **The Setup Contract:** Work inside the devcontainer. The shell should already have ESP-IDF sourced and `idf.py` available.
+- **Validation:** Use the normal `idf.py`, `cmake`, `ctest`, and `uv` commands directly inside the container.
+- **Local Config:** `IDF_PATH` is fixed by the devcontainer image. `BOARD_PORT` may be overridden in the devcontainer if needed.
 - **Core Commands:** Prefer standard ESP-IDF commands (`idf.py set-target esp32p4`, `idf.py build`, `idf.py flash`).
 - **Custom Script Arsenal:** Use small, purpose-built tools rather than generic overrides:
   - `python3 -m tools.monitor`: Use for serial monitoring and waiting on specific ready-banners.
@@ -55,7 +55,7 @@
 ## 7. Testing & Review Expectations
 
 - **Coverage:** Unit tests are mandatory for new logic unless waived. Decouple algorithms from the HAL to allow native unit testing.
-- **Host vs. Device:** Use `gtest` (via `cmake`/`ctest`) for host tests under `host_tests`. Use Unity for on-device firmware tests.
+- **Native vs. Device:** Use `gtest` (via `cmake`/`ctest`) for native tests under `host_tests`. Use Unity for on-device firmware tests.
 - **Atomic Tests:** Keep each test focused on one behavior or a small related API contract; split unrelated assertions into separate cases.
 - **Smoke Cases:** `platform_smoke` is the canonical bring-up case. A successful run logs firmware identity, port mappings, `READY: clock_monotonicity`, `READY: platform_smoke`, and periodic `HEALTH` lines on `UART0`.
 - **Pre-Commit:** Run relevant `pre-commit` hooks before closing a task to ensure formatting compliance.

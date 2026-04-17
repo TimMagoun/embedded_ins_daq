@@ -30,7 +30,7 @@ The current codebase already provides this platform baseline, which should be ev
 - `host_tests/CMakeLists.txt`
 - `host_tests/clock_host_test.cc`
 - `host_tests/board_ports_host_test.cc`
-- `tools/bootstrap_env.sh`
+- the devcontainer image and shell bootstrap
 - `README.md`
 
 Supporting repo baseline that remains in scope:
@@ -43,7 +43,7 @@ Evidence as of `2026-03-28`:
 - host suite passes with `cmake -S host_tests -B build_host && cmake --build build_host && ctest --test-dir build_host --output-on-failure`
 - `app_main` already initializes the clock service, starts the ISR clock smoke path, emits `READY: clock_monotonicity`, starts the periodic health banner task, and emits `READY: platform_smoke`
 - the host baseline already covers monotonic clock helpers and fixed board-port mapping invariants
-- `README.md` and `tools/bootstrap_env.sh` already define the setup, validation, host-test, and platform-smoke workflow that later tasks must extend instead of replacing
+- `README.md` and the devcontainer already define the setup, validation, host-test, and platform-smoke workflow that later tasks must extend instead of replacing
 - no config/session/fault, record-pipeline, UART capture, sync, trigger, or SD modules exist yet
 
 ## Baseline Evaluation
@@ -742,8 +742,7 @@ artifact_names = ["session.bin", "status.log", "config.json", "monitor.log", "ti
 - [ ] **Step 4: Run the full verification matrix**
 
 ```bash
-source ./tools/setup.sh
-./tools/bootstrap_env.sh
+open the repository in the devcontainer
 idf.py build
 cmake -S host_tests -B build_host
 cmake --build build_host

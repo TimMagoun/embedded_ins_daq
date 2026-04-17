@@ -26,7 +26,7 @@ class DeviceRunnerError(RuntimeError):
 def require_idf_py() -> None:
     if shutil.which("idf.py") is None:
         raise DeviceRunnerError(
-            "idf.py is not available in PATH. Run 'source ./tools/setup.sh' first."
+            "idf.py is not available in PATH. Open the devcontainer before running this script."
         )
 
 
@@ -34,7 +34,7 @@ def resolve_port(arg_port: str | None) -> str:
     port = arg_port or os.environ.get("BOARD_PORT")
     if not port:
         raise DeviceRunnerError(
-            "No serial port configured. Run 'source ./tools/setup.sh' or pass --port."
+            "No serial port configured. Set BOARD_PORT in the devcontainer or pass --port."
         )
     return port
 

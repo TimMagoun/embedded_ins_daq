@@ -1,0 +1,24 @@
+{
+  "name": "embedded_ins_daq",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/embedded_ins_daq",
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "overrideCommand": false,
+  "runArgs": [
+    "--device-cgroup-rule=c 166:* rmw",
+    "--device-cgroup-rule=c 188:* rmw",
+    "--group-add=20"
+  ],
+  "containerEnv": {
+    "IDF_PATH": "/opt/esp/idf",
+    "BOARD_PORT": "/dev/ttyACM0"
+  },
+  "mounts": [
+    "source=${localEnv:HOME}/.codex,target=/home/vscode/.codex,type=bind",
+    "source=/dev,target=/dev,type=bind"
+  ]
+}

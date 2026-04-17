@@ -1,1 +1,1 @@
-"""Tooling package for local ESP-IDF helper modules."""
+"""Tooling package for ESP-IDF helper modules."""
