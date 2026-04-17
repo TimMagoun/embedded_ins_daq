@@ -20,6 +20,7 @@ static bool sync_edge_mode_valid(sync_edge_mode_t mode) {
 runtime_config_t runtime_config_default(void) {
   runtime_config_t config = {0};
 
+  config.port_count = BOARD_PORT_COUNT;
   config.ports[0].enabled = true;
   config.ports[0].baud_rate = 115200;
   config.ports[0].timing_mode = PORT_TIMING_NONE;
