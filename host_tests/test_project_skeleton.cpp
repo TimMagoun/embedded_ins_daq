@@ -22,7 +22,7 @@ TEST(ProjectSkeleton,
   daq::StatusSnapshot snapshot{};
   snapshot.state = daq::State::kReady;
   snapshot.active_fault.origin = daq::FaultOrigin::kNone;
-  snapshot.active_fault.detail = daq::ConfigFaultDetail::kNone;
+  snapshot.active_fault.detail = daq::FaultDetail::kNone;
   snapshot.session_active = false;
 
   EXPECT_EQ(snapshot.state, daq::State::kReady);

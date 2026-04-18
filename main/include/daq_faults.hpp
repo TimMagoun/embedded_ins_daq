@@ -13,7 +13,7 @@ enum class FaultOrigin : std::uint8_t {
   kPlatform = 5,
 };
 
-enum class ConfigFaultDetail : std::uint8_t {
+enum class FaultDetail : std::uint8_t {
   kNone = 0,
   kNoEnabledUarts = 1,
   kTooManyUarts = 2,
@@ -24,11 +24,15 @@ enum class ConfigFaultDetail : std::uint8_t {
   kInvalidSdBlockSize = 7,
   kTriggerMaskWithoutPort = 8,
   kSyncMaskWithoutPort = 9,
+  kInvalidStateTransition = 10,
+  kQueueOverflow = 11,
+  kStorageWriteFailed = 12,
+  kPlatformError = 13,
 };
 
 struct FaultCode {
   FaultOrigin origin = FaultOrigin::kNone;
-  ConfigFaultDetail detail = ConfigFaultDetail::kNone;
+  FaultDetail detail = FaultDetail::kNone;
 };
 
 constexpr bool operator==(const FaultCode& lhs, const FaultCode& rhs) {
