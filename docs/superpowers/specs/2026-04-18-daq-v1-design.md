@@ -364,6 +364,235 @@ flowchart LR
     SD -. storage failure .-> FLT
 ```
 
+## Hardware Execution Plan
+
+The first prototype must be viable on the ESP32-P4 hardware without premature optimization. The execution plan therefore favors simple mechanisms first, while preserving clean seams for later upgrades if measurement shows real bottlenecks.
+
+### Peripheral Choices
+
+The planned peripheral set for v1 is:
+
+- `UART0` reserved for console, boot logs, and recovery
+- `UART1`-`UART4` used for the four sensor ports
+- one shared `GPTimer` used as the canonical monotonic microsecond timebase
+- GPIO edge interrupts for `SYNC` capture
+- GPIO output for trigger generation in v1
+- `SDMMC_HOST_SLOT_1` for the onboard TF slot
+
+Upgrade seams are intentionally preserved:
+
+- UART receive starts with ESP-IDF driver events, but the backend should be replaceable by DMA later
+- trigger output starts as software-driven, but the interface should allow a later `GPTimer + ETM` implementation
+- sync capture starts with GPIO ISR timestamping, but the architecture should allow later hardware-assisted capture if required
+
+### Core and Priority Plan
+
+The LP core is not used in v1. All application logic runs on the two HP cores.
+
+Core split:
+
+- `capture-oriented core`
+  - shared `capture_task`
+  - UART RX-related wakeups
+  - sync GPIO ISR handling
+  - trigger issue path
+  - timer reads and chunk-state updates
+- `storage/control-oriented core`
+  - `storage_mux_task`
+  - `sd_writer_task`
+  - `StateManager`
+  - `StatusFaultHub`
+
+Priority model:
+
+- `HIGH`
+  - `capture_task`
+  - `storage_mux_task`
+- `LOW`
+  - `sd_writer_task`
+  - control and state handling
+  - status and fault handling
+
+This keeps the scheduler simple and biases CPU time toward preserving ingest integrity.
+
+```mermaid
+flowchart LR
+    subgraph Core0["HP Core: capture-oriented"]
+        CT["capture_task\nHIGH"]
+        ISR1["UART RX wakeups"]
+        ISR2["SYNC GPIO ISR"]
+        TRG["Trigger issue path"]
+        CLK["GPTimer reads"]
+    end
+
+    subgraph Core1["HP Core: storage/control-oriented"]
+        MXT["storage_mux_task\nHIGH"]
+        SWT["sd_writer_task\nLOW"]
+        STM["StateManager\nLOW"]
+        SFT["StatusFaultHub\nLOW"]
+    end
+
+    ISR1 --> CT
+    ISR2 --> CT
+    TRG --> CT
+    CLK --> CT
+    CT --> MXT
+    MXT --> SWT
+    STM --> CT
+    STM --> MXT
+    STM --> SWT
+    CT --> SFT
+    MXT --> SFT
+    SWT --> SFT
+```
+
+### Task Model
+
+#### `capture_task`
+
+Single shared high-priority task for all sensor ports.
+
+Responsibilities:
+
+- consume ESP-IDF UART driver events for all active sensor UARTs
+- drain available UART bytes from the signaled port
+- create and update per-port chunk state
+- assign `first_byte_timestamp` when a chunk begins
+- update `last_byte_timestamp` as bytes arrive
+- flush chunks on max-size reach
+- flush chunks on idle-gap expiry
+- consume sync and trigger work items from their fixed queues
+- emit completed source records into per-source record queues
+
+Idle-gap handling for v1 is inline in the task loop rather than driven by a separate periodic timer wakeup. After each wakeup and batch of work, the task performs a lightweight scan of active per-port chunk state and flushes any chunk whose idle-gap threshold has expired.
+
+#### `storage_mux_task`
+
+High-priority task responsible for keeping source queues drained.
+
+Responsibilities:
+
+- consume per-source UART and timing-event record queues
+- serialize records into the binary file format
+- assemble fixed SD-write blocks
+- enqueue those blocks to the SD-writer queue
+
+#### `sd_writer_task`
+
+Low-priority task responsible for file operations only.
+
+Responsibilities:
+
+- create the session file
+- write the file header
+- append serialized write blocks
+- flush and close on stop
+- fault on any storage error
+
+#### Control and Status Work
+
+Low-priority control-plane work may stay as one or two small tasks as long as the interface boundaries remain clear.
+
+- `StateManager` owns state transitions and session commands
+- `StatusFaultHub` collects status and fault reports
+
+Neither must sit in the hot path for data capture.
+
+### Interrupt and Handoff Rules
+
+Interrupts should create work, not perform policy.
+
+Rules:
+
+- timing-critical interrupts should prefer the capture-oriented core where ESP-IDF allows
+- ISR bodies must stay minimal
+- any ISR-to-task handoff uses fixed-capacity queues or equivalent `_FromISR` primitives
+- ISR work must never perform serialization, checksum generation, logging, or filesystem access
+
+Expected interrupt behavior:
+
+- UART RX path
+  - use ESP-IDF UART driver events for v1 wakeups
+  - `capture_task` performs the actual chunk-management logic
+- `SYNC` GPIO ISR
+  - read the shared timestamp source
+  - capture port ID, event class, and edge
+  - enqueue a compact work item
+- trigger issue path
+  - issue the GPIO transition in the high-priority flow
+  - capture the timestamp and enqueue a compact work item
+
+### Memory Placement Rules
+
+The default memory rule is internal SRAM first, with PSRAM used only later for proven-safe bulk storage.
+
+Must remain in internal SRAM:
+
+- ISR-facing state
+- per-port chunk state
+- source record queues
+- ISR-to-capture work queues
+- storage-mux input queues
+- queue control structures and metadata
+- compact event and record descriptors
+- any state required to fault cleanly when queue send fails
+
+Must be IRAM-safe where required:
+
+- ISR entry points
+- tiny helper functions called directly by those ISRs
+
+Candidate for PSRAM later, only after measurement:
+
+- large SD-write aggregation buffers
+- larger serialization scratch buffers
+- noncritical diagnostic history
+
+```mermaid
+flowchart TB
+    subgraph Internal["Internal SRAM / ISR-safe working set"]
+        CS["Per-port chunk state"]
+        IWQ["ISR-to-capture work queues"]
+        SRQ["Per-source record queues"]
+        SWQ["SD write-block queue"]
+        QMD["Queue metadata and control"]
+        EVT["Compact event/record descriptors"]
+    end
+
+    subgraph PSRAM["PSRAM candidates after measurement"]
+        AGG["Large SD aggregation buffers"]
+        SCR["Serialization scratch buffers"]
+        DBG["Noncritical diagnostic history"]
+    end
+
+    CT["capture_task"] --> CS
+    CT --> IWQ
+    CT --> SRQ
+    MXT["storage_mux_task"] --> SRQ
+    MXT --> SWQ
+    MXT --> EVT
+    SWT["sd_writer_task"] --> SWQ
+    CT --> QMD
+    MXT --> QMD
+    SWT --> AGG
+    MXT --> SCR
+```
+
+### Peripheral Ownership Table
+
+| Resource | V1 Role | Primary Owner | Priority Band | Immediate State Placement | Notes |
+|---|---|---|---|---|---|
+| `UART0` | Console, boot logs, recovery | low-priority control/debug path | `LOW` | internal SRAM | Keep isolated from sensor traffic. |
+| `UART1`-`UART4` | Sensor RX/TX ports | `capture_task` via ESP-IDF UART driver | `HIGH` | internal SRAM | Start with driver-event RX path; keep backend replaceable later. |
+| `GPTimer` | Shared monotonic microsecond clock | capture-side timing logic | `HIGH` | timer handle/state in internal SRAM | Single canonical timebase for UART, trigger, and sync timestamps. |
+| GPIO interrupt lines for `SYNC` | Rising/falling edge detection | ISR -> `capture_task` | `HIGH` | ISR work items and queue state in internal SRAM; ISR entry IRAM-safe | Start with GPIO ISR capture; preserve upgrade seam for hardware assist later. |
+| Trigger output GPIO | Session trigger pulse generation | capture-side high-priority flow | `HIGH` | internal SRAM | Software-driven first; interface should allow later `GPTimer + ETM` backend. |
+| `SDMMC_HOST_SLOT_1` | Onboard TF card logging | `sd_writer_task` | `LOW` | driver state internal SRAM; bulk buffers internal first | Native SDMMC, normal filesystem file. |
+| Source record queues | Handoff from capture modules to mux | `capture_task` / `storage_mux_task` | `HIGH` | internal SRAM | Fixed-capacity, no dynamic allocation, overflow is fatal. |
+| SD write-block queue | Handoff from mux to writer | `storage_mux_task` / `sd_writer_task` | `HIGH` -> `LOW` | internal SRAM first | Candidate for larger buffers later if measurement justifies it. |
+| Per-port chunk state | Idle-gap chunk assembly | `capture_task` | `HIGH` | internal SRAM | Holds `active`, `first_byte_ts`, `last_byte_ts`, `length`, and write position. |
+| `StatusFaultHub` transport | Debug/fault collection | low-priority control/status | `LOW` | internal SRAM | Must never be required for capture progress. |
+
 ## Fault Handling
 
 All runtime faults are irrecoverable in v1.
