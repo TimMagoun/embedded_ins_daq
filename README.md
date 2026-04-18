@@ -38,7 +38,7 @@ cmake -S host_tests -B build_host
 cmake --build build_host
 ctest --test-dir build_host --output-on-failure
 uv run python3 tools/check_host_coverage.py
-./tools/run_cppcheck.sh --strict # Required if C/C++ code changed
+uv run ./tools/run_cppcheck.py --strict # Required if C/C++ code changed
 ```
 
 `host_tests/` fetches GoogleTest automatically during CMake configuration, so no separate system GTest install is required.

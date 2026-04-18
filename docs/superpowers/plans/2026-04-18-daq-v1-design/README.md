@@ -167,4 +167,4 @@ ______________________________________________________________________
 - Full quality gates before merge:
   - `uv run pre-commit run --all-files`
   - Use the Host Validation Gate before the host-test portion of the gate.
-  - `./tools/run_cppcheck.sh --strict`
+  - `uv run ./tools/run_cppcheck.py --strict`

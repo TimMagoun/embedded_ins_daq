@@ -76,7 +76,7 @@
 - **Commit Workflow:** Unless scoped down by the user, enforce this exact order before committing:
   1. `uv run pre-commit run --all-files`
   1. Host Validation Gate
-  1. `./tools/run_cppcheck.sh --strict`
+  1. `uv run ./tools/run_cppcheck.py --strict`
 - **Review Deliverable:** When closing a task or PR, summarize the specific contracts verified, fault paths exercised, and any blind spots. "Tests pass" is not an acceptable summary.
 
 ### 7. Planning Lessons Learned
