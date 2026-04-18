@@ -39,3 +39,19 @@
 
 # debug information files
 *.dwo
+
+# Python cache
+__pycache__/
+.ruff_cache/
+.venv/
+
+# build
+build/
+build_host/
+build_host_coverage/
+
+.cache/
+
+artifacts/
+esp.env
+sdkconfig
