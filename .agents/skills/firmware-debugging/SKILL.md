@@ -28,7 +28,6 @@ Always run:
 
 ```bash
 source ./tools/setup.sh
-./tools/bootstrap_env.sh
 ```
 
 If the issue may be build-related, also run:
@@ -135,7 +134,6 @@ Use this for:
 
 ```bash
 source ./tools/setup.sh
-./tools/bootstrap_env.sh
 idf.py --version
 idf.py --list-targets
 ```
