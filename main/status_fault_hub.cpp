@@ -1,4 +1,4 @@
-#include "daq_status.hpp"
+#include "status_fault_hub.hpp"
 
 namespace daq {
 

@@ -4,7 +4,6 @@
 
 #include "daq_faults.hpp"
 #include "daq_types.hpp"
-#include "status_sink_interface.hpp"
 
 namespace daq {
 
@@ -37,17 +36,6 @@ struct StatusSnapshot {
   FaultCode active_fault = {};
   bool session_active = false;
   StatusEvent last_status = {};
-};
-
-class StatusFaultHub final : public StatusSinkInterface {
- public:
-  void ReportStatus(const StatusEvent& event) override;
-  void ReportFault(const FaultCode& fault) override;
-
-  const StatusSnapshot& snapshot() const;
-
- private:
-  StatusSnapshot snapshot_{};
 };
 
 }  // namespace daq

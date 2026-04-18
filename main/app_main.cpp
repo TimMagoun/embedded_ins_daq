@@ -1,7 +1,7 @@
 #include "c_linkage.h"
 #include "daq_config.hpp"
-#include "daq_status.hpp"
 #include "esp_log.h"
+#include "status_fault_hub.hpp"
 #include "validate_config.hpp"
 
 namespace {

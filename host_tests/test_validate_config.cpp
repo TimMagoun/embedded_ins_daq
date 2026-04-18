@@ -3,6 +3,7 @@
 #include "daq_config.hpp"
 #include "daq_faults.hpp"
 #include "daq_status.hpp"
+#include "status_fault_hub.hpp"
 #include "validate_config.hpp"
 
 namespace {

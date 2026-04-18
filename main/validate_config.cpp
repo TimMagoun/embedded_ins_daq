@@ -2,15 +2,6 @@
 
 namespace {
 
-constexpr std::uint8_t popcount_u8(std::uint8_t value) {
-  std::uint8_t count = 0;
-  while (value != 0U) {
-    count = static_cast<std::uint8_t>(count + (value & 0x01U));
-    value = static_cast<std::uint8_t>(value >> 1U);
-  }
-  return count;
-}
-
 constexpr daq::FaultCode config_fault(daq::ConfigFaultDetail detail) {
   daq::FaultCode fault{};
   fault.origin = daq::FaultOrigin::kConfig;
@@ -31,10 +22,10 @@ FaultCode validate_config(const DaqConfig& config) {
     return config_fault(ConfigFaultDetail::kTooManyUarts);
   }
 
-  const std::uint8_t enabled_uart_mask =
+  const auto enabled_uart_mask =
       static_cast<std::uint8_t>(config.enabled_uart_mask & kSupportedUartMask);
   if (enabled_uart_mask != config.enabled_uart_mask ||
-      popcount_u8(enabled_uart_mask) != config.enabled_uart_count) {
+      __builtin_popcount(enabled_uart_mask) != config.enabled_uart_count) {
     return config_fault(ConfigFaultDetail::kEnabledUartMaskMismatch);
   }
 
