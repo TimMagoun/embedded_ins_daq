@@ -34,9 +34,8 @@
 **Native Verification:**
 
 - Run the full host suite:
-  - `cmake -S host_tests -B build_host`
-  - `cmake --build build_host`
-  - `ctest --test-dir build_host --output-on-failure`
+  - Use the Host Validation Gate from [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates).
+  - Use the full-host `ctest --test-dir build_host --output-on-failure` variant.
 - Ensure host tests include a behavioral matrix covering:
   - all lifecycle states and illegal transitions
   - threshold boundaries
@@ -47,7 +46,7 @@
   - deterministic multi-port interleaving
 - Run repo quality gates:
   - `uv run pre-commit run --all-files`
-  - `uv run python3 tools/check_host_coverage.py`
+  - Use the Host Validation Gate before the host-test portion of the gate.
   - `./tools/run_cppcheck.sh --strict`
 
 **On-Device Hardware Verification:**

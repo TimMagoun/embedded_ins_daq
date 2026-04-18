@@ -29,10 +29,9 @@
 
 **Native Verification:**
 
-- Build-only sanity:
-  - `cmake -S host_tests -B build_host`
-  - `cmake --build build_host`
-  - `ctest --test-dir build_host --output-on-failure -R project_skeleton`
+- Host Validation Gate:
+  - Use the Host Validation Gate from [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates).
+  - Use `ctest --test-dir build_host --output-on-failure -R project_skeleton` for the step-specific filter.
 - Expected result:
   - Host test binary builds.
   - `project_skeleton` confirms shared C++ headers compile cleanly in host mode.

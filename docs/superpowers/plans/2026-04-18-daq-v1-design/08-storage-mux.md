@@ -38,8 +38,9 @@
   - empty stop flush does not emit a spurious block
   - multi-port interleaving preserves dequeue order without timestamp reordering
   - post-fault no further blocks are emitted
-- Command:
-  - `ctest --test-dir build_host --output-on-failure -R storage_mux_core`
+- Host Validation Gate:
+  - Use the Host Validation Gate from [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates).
+  - Use `ctest --test-dir build_host --output-on-failure -R storage_mux_core` for the step-specific filter.
 
 **On-Device Hardware Verification:**
 

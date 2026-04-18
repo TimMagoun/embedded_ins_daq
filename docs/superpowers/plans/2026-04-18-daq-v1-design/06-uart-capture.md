@@ -66,8 +66,9 @@
   - max-size boundary at `N-1`, `N`, and `N+1` bytes
   - zero-byte batches are ignored without corrupting state
   - post-fault input does not mutate chunk state or emit additional records
-- Command:
-  - `ctest --test-dir build_host --output-on-failure -R uart_capture_core`
+- Host Validation Gate:
+  - Use the Host Validation Gate from [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates).
+  - Use `ctest --test-dir build_host --output-on-failure -R uart_capture_core` for the step-specific filter.
 
 **On-Device Hardware Verification:**
 

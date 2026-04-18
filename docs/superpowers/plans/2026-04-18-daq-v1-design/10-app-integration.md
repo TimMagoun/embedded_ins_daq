@@ -55,8 +55,9 @@
   - first fault wins across competing module failures
   - post-fault adapters may still receive stimuli but the app emits no new records or writes
   - high-watermark/status telemetry paths do not alter capture behavior
-- Command:
-  - `ctest --test-dir build_host --output-on-failure -R daq_app`
+- Host Validation Gate:
+  - Use the Host Validation Gate from [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates).
+  - Use `ctest --test-dir build_host --output-on-failure -R daq_app` for the step-specific filter.
 
 **On-Device Hardware Verification:**
 

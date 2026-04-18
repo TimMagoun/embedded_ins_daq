@@ -46,8 +46,9 @@
   - truncated buffer rejection
   - header checksum failure and record checksum failure are distinguishable
   - round-trip decode helper tests from structured value -> bytes -> structured value for supported versions
-- Command:
-  - `ctest --test-dir build_host --output-on-failure -R 'record_format|record_checksum'`
+- Host Validation Gate:
+  - Use the Host Validation Gate from [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates).
+  - Use `ctest --test-dir build_host --output-on-failure -R 'record_format|record_checksum'` for the step-specific filter.
 
 **On-Device Hardware Verification:**
 

@@ -36,10 +36,9 @@
   - idle-gap threshold outside accepted range
   - inconsistent cross-field combinations such as enabled sync lines without enabled ports
   - status/fault value objects preserve the precise first failure reason
-- Commands:
-  - `cmake -S host_tests -B build_host`
-  - `cmake --build build_host`
-  - `ctest --test-dir build_host --output-on-failure -R validate_config`
+- Host Validation Gate:
+  - Use the Host Validation Gate from [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates).
+  - Use `ctest --test-dir build_host --output-on-failure -R validate_config` for the step-specific filter.
 
 **On-Device Hardware Verification:**
 

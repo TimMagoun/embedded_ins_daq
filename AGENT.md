@@ -57,6 +57,12 @@
 - **Frameworks:** Decouple algorithms from the HAL.
 - **Testing Philosophy:** Write atomic tests. High line coverage is insufficient; tests must verify interface contracts, boundary conditions, and fault paths.
 - **Test naming:** Name tests `Should<Postcondition>Given<Precondition>` so the single behavior under test is obvious from the identifier alone.
+- **Host Validation Gate:** Any validation step that touches host tests must use this sequence:
+  1. `cmake -S host_tests -B build_host`
+  1. `cmake --build build_host`
+  1. `ctest --test-dir build_host --output-on-failure` or a narrower `ctest` filter when the step calls for it
+  1. `uv run python3 tools/check_host_coverage.py`
+  1. `python3 tools/generate_compile_commands.py`
 - **Verification depth:** For specs, plans, and implementations, require verification of:
   - happy paths
   - boundary conditions (`N-1`, `N`, `N+1`; just-below / exactly-at / just-above thresholds)
@@ -69,8 +75,7 @@
 - **Smoke Cases:** `platform_smoke` is the canonical bring-up case (logs identity, port mappings, monotonicity, and periodic UART0 health).
 - **Commit Workflow:** Unless scoped down by the user, enforce this exact order before committing:
   1. `uv run pre-commit run --all-files`
-  1. `ctest` (targeted or full host)
-  1. `uv run python3 tools/check_host_coverage.py`
+  1. Host Validation Gate
   1. `./tools/run_cppcheck.sh --strict`
 - **Review Deliverable:** When closing a task or PR, summarize the specific contracts verified, fault paths exercised, and any blind spots. "Tests pass" is not an acceptable summary.
 

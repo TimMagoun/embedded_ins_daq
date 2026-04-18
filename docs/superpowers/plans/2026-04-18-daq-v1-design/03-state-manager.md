@@ -44,8 +44,9 @@
   - session start timestamp equality handling is explicit when record timestamp equals `session_start`
   - first fault wins and later faults do not overwrite the latched reason
   - commands emitted by the core are exact and ordered: `arm`, `start_session`, `stop_session`, `fault_shutdown`
-- Command:
-  - `ctest --test-dir build_host --output-on-failure -R state_manager_core`
+- Host Validation Gate:
+  - Use the Host Validation Gate from [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates).
+  - Use `ctest --test-dir build_host --output-on-failure -R state_manager_core` for the step-specific filter.
 
 **On-Device Hardware Verification:**
 

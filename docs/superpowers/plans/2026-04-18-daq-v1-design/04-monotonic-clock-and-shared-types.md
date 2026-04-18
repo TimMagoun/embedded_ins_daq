@@ -41,8 +41,9 @@
   - large timestamp deltas without overflow in comparison helpers
   - zero-delta comparisons
   - ordering invariants for compact event descriptors
-- Command:
-  - `ctest --test-dir build_host --output-on-failure -R monotonic_time_core`
+- Host Validation Gate:
+  - Use the Host Validation Gate from [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates).
+  - Use `ctest --test-dir build_host --output-on-failure -R monotonic_time_core` for the step-specific filter.
 
 **On-Device Hardware Verification:**
 

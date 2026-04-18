@@ -46,8 +46,9 @@
   - fault during close
   - post-fault additional writes are rejected
   - stop without queued data still produces a valid header-only file if that is the chosen behavior
-- Command:
-  - `ctest --test-dir build_host --output-on-failure -R sd_writer_core`
+- Host Validation Gate:
+  - Use the Host Validation Gate from [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates).
+  - Use `ctest --test-dir build_host --output-on-failure -R sd_writer_core` for the step-specific filter.
 
 **On-Device Hardware Verification:**
 

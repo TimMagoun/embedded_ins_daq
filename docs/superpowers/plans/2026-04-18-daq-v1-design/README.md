@@ -157,15 +157,14 @@ ______________________________________________________________________
 
 ## Global Verification Gates
 
+- Host Validation Gate:
+  - See [AGENT.md](/home/agent/workspace/embedded_ins_daq/AGENT.md#6-testing--quality-gates) for the authoritative host-test sequence.
 - Native:
-  - `cmake -S host_tests -B build_host`
-  - `cmake --build build_host`
-  - `ctest --test-dir build_host --output-on-failure`
+  - Use the Host Validation Gate before any host-test verification.
 - Hardware:
   - `idf.py build`
   - `idf.py -p /dev/ttyACM0 flash monitor`
 - Full quality gates before merge:
   - `uv run pre-commit run --all-files`
-  - `ctest --test-dir build_host --output-on-failure`
-  - `uv run python3 tools/check_host_coverage.py`
+  - Use the Host Validation Gate before the host-test portion of the gate.
   - `./tools/run_cppcheck.sh --strict`
