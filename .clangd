@@ -23,11 +23,12 @@ Diagnostics:
       - cppcoreguidelines-avoid-c-arrays
       - cppcoreguidelines-avoid-do-while
       - cppcoreguidelines-avoid-magic-numbers
-      - cppcoreguidelines-pro-type-vararg
       - cppcoreguidelines-pro-bounds-array-to-pointer-decay
       - cppcoreguidelines-pro-type-union-access
-      - modernize-use-trailing-return-type
+      - cppcoreguidelines-pro-type-vararg
       - modernize-avoid-c-arrays
+      - modernize-use-nodiscard
+      - modernize-use-trailing-return-type
       - readability-identifier-length
       - readability-magic-numbers
     CheckOptions:
