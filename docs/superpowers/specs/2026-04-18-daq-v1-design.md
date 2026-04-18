@@ -41,6 +41,18 @@ Transitions:
 
 The `faulted` state is terminal for v1.
 
+```mermaid
+stateDiagram-v2
+    [*] --> init
+    init --> ready: config_ok
+    init --> faulted: config_fault
+    ready --> running: start
+    running --> ready: stop
+    ready --> faulted: fault
+    running --> faulted: fault
+    faulted --> [*]
+```
+
 ## Plane Separation
 
 The firmware is split into a data plane and a control plane with deliberately small interfaces.
@@ -66,6 +78,35 @@ The control plane decides whether a session is active and records system health:
 - centralized status and fault reporting
 
 The control plane must not sit in the hot path for byte capture, ISR timestamping, or file writes.
+
+```mermaid
+flowchart LR
+    subgraph ControlPlane["Control plane"]
+        VC["validate_config(...)"]
+        SM["StateManager"]
+        SF["StatusFaultHub"]
+    end
+
+    subgraph DataPlane["Data plane"]
+        MC["MonotonicClock"]
+        UC["UartCapture[N]"]
+        TC["TriggerSyncCapture[N]"]
+        MX["StorageMux"]
+        SD["SdWriter"]
+    end
+
+    VC --> SM
+    SM -->|arm/start/stop/fault_shutdown| UC
+    SM -->|arm/start/stop/fault_shutdown| TC
+    SM -->|start_session/stop_session| MX
+    SM -->|start_session/stop_session| SD
+    UC -->|status/fault| SF
+    TC -->|status/fault| SF
+    MX -->|status/fault| SF
+    SD -->|status/fault| SF
+    MC --> UC
+    MC --> TC
+```
 
 ## Modules
 
@@ -185,6 +226,24 @@ Rules:
 
 This makes the session boundary explicit and ensures the file contains only in-session data.
 
+```mermaid
+sequenceDiagram
+    participant SM as StateManager
+    participant UC as Capture Modules
+    participant MX as StorageMux
+    participant SD as SdWriter
+
+    SM->>UC: arm in ready
+    Note over UC: Observe bytes and edges\nDiscard pre-start activity
+    SM->>SD: start_session(session_start_ts)
+    SD->>SD: create file + write header
+    SM->>MX: enable record acceptance
+    UC->>MX: records with ts >= session_start
+    MX->>SD: serialized write blocks
+    SM->>MX: stop_session
+    SM->>SD: flush + close
+```
+
 ## Record Model
 
 The binary log contains a file header followed by a sequence of records.
@@ -220,6 +279,18 @@ Behavior:
 
 - trigger timestamps correspond to output pulse issue time
 - sync timestamps correspond to detected input-edge time
+
+```mermaid
+flowchart TD
+    File["Binary log file"]
+    Header["Header\nmagic | version | length | session_start_ts | decoder-required config summary | checksum"]
+    UART["UART_DATA record\nrecord_type | port_id | first_byte_ts_us | payload_length | payload | checksum"]
+    EVT["TIMING_EVENT record\nrecord_type | port_id | timestamp_us | event_class | edge | checksum"]
+
+    File --> Header
+    File --> UART
+    File --> EVT
+```
 
 ## File Format
 
@@ -270,6 +341,28 @@ The queueing model is strictly bounded and allocation-free in the hot path.
 ### Capacity Rule
 
 If any source queue or the SD-writer queue cannot accept a record or block immediately, the system raises an irrecoverable fault. The design never silently drops data to preserve continued operation.
+
+```mermaid
+flowchart LR
+    subgraph Sources["Per-source capture side"]
+        U1["UartCapture[0..N]\nfixed chunk buffer\nfixed record queue"]
+        T1["TriggerSyncCapture[0..N]\nfixed record queue"]
+    end
+
+    MX["StorageMux\nserialize records\nassemble write blocks"]
+    WQ["SdWriter queue\nfixed-capacity blocks"]
+    SD["SdWriter\nfile open/write/flush/close"]
+    FLT["faulted"]
+
+    U1 --> MX
+    T1 --> MX
+    MX --> WQ
+    WQ --> SD
+    U1 -. enqueue fail .-> FLT
+    T1 -. enqueue fail .-> FLT
+    MX -. writer queue full .-> FLT
+    SD -. storage failure .-> FLT
+```
 
 ## Fault Handling
 
