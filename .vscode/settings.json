@@ -1,0 +1,5 @@
+{
+  "clangd.arguments": [
+    "--query-driver=/home/agent/.espressif/tools/riscv32-esp-elf/**/riscv32-esp-elf-g++,/usr/bin/c++"
+  ]
+}

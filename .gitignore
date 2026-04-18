@@ -55,3 +55,6 @@ build_host_coverage/
 artifacts/
 esp.env
 sdkconfig
+
+# Compile commands
+compile_commands.json

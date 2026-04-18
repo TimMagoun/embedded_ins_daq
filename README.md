@@ -24,6 +24,7 @@ Use standard ESP-IDF commands for local development:
 
 - **Build:** `idf.py build`
 - **Flash & Monitor:** `idf.py -p /dev/ttyACM0 flash monitor`
+- **Generate combined compile commands:** `python3 tools/generate_compile_commands.py`
 
 *Note: `UART0` is strictly reserved for the console, boot logs, and panic output.*
 

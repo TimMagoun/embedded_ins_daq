@@ -1,0 +1,9 @@
+If:
+  PathMatch: ^main/.*\.(c|cc|cpp|cxx|h|hpp)$
+CompileFlags:
+  BuiltinHeaders: QueryDriver
+  Remove:
+    - -fno-shrink-wrap
+    - -fstrict-volatile-bitfields
+    - -fno-tree-switch-conversion
+    - -march=*
