@@ -13,8 +13,8 @@ source ./tools/setup.sh
 **Initial Workspace Setup (Run Once):**
 
 ```bash
-uv sync --group dev
-uv run --group dev pre-commit install
+uv sync
+uv run pre-commit install
 idf.py set-target esp32p4  # Sets ESP32-P4 v1.3 compatibility defaults
 ```
 
@@ -33,11 +33,11 @@ Use standard ESP-IDF commands for local development:
 Run these gates sequentially before creating a commit. Tests must verify interface contracts, boundary conditions, and fault-handling paths—line coverage alone is insufficient.
 
 ```bash
-uv run --group dev pre-commit run --all-files
+uv run pre-commit run --all-files
 cmake -S host_tests -B build_host
 cmake --build build_host
 ctest --test-dir build_host --output-on-failure
-uv run --group dev python3 tools/check_host_coverage.py
+uv run python3 tools/check_host_coverage.py
 ./tools/run_cppcheck.sh --strict # Required if C/C++ code changed
 ```
 

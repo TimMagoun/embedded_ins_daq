@@ -165,7 +165,7 @@ ______________________________________________________________________
   - `idf.py build`
   - `idf.py -p /dev/ttyACM0 flash monitor`
 - Full quality gates before merge:
-  - `uv run --group dev pre-commit run --all-files`
+  - `uv run pre-commit run --all-files`
   - `ctest --test-dir build_host --output-on-failure`
-  - `uv run --group dev python3 tools/check_host_coverage.py`
+  - `uv run python3 tools/check_host_coverage.py`
   - `./tools/run_cppcheck.sh --strict`

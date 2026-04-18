@@ -46,8 +46,8 @@
   - adapter batch-size invariance
   - deterministic multi-port interleaving
 - Run repo quality gates:
-  - `uv run --group dev pre-commit run --all-files`
-  - `uv run --group dev python3 tools/check_host_coverage.py`
+  - `uv run pre-commit run --all-files`
+  - `uv run python3 tools/check_host_coverage.py`
   - `./tools/run_cppcheck.sh --strict`
 
 **On-Device Hardware Verification:**

@@ -14,31 +14,31 @@ repos:
     hooks:
       - id: black
         name: black
-        entry: uv run --group dev black
+        entry: uv run black
         language: system
         files: ^tools/.*\.py$
 
       - id: shfmt
         name: shfmt
-        entry: uv run --group dev shfmt -w -i 4 -ci -sr -bn
+        entry: uv run shfmt -w -i 4 -ci -sr -bn
         language: system
         files: ^tools/.*\.sh$
 
       - id: mdformat
         name: mdformat
-        entry: uv run --group dev mdformat
+        entry: uv run mdformat
         language: system
         files: ^(?!\.agents/).+\.md$
 
       - id: clang-format
         name: clang-format
-        entry: uv run --group dev clang-format -i
+        entry: uv run clang-format -i
         language: system
         files: ^(main|host_tests)/.*\.(c|cc|cpp|h|hpp)$
 
       - id: host-coverage
         name: host-coverage
-        entry: uv run --group dev python3 tools/check_host_coverage.py
+        entry: uv run python3 tools/check_host_coverage.py
         language: system
         pass_filenames: false
         stages: [manual]

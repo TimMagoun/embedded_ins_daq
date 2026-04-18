@@ -114,9 +114,7 @@ wheels = [
 name = "embedded-ins-daq"
 version = "0.1.0"
 source = { virtual = "." }
-
-[package.dev-dependencies]
-dev = [
+dependencies = [
     { name = "black" },
     { name = "clang-format" },
     { name = "gcovr" },
@@ -126,9 +124,7 @@ dev = [
 ]
 
 [package.metadata]
-
-[package.metadata.requires-dev]
-dev = [
+requires-dist = [
     { name = "black", specifier = "==26.3.1" },
     { name = "clang-format", specifier = "==22.1.1" },
     { name = "gcovr", specifier = "==7.2" },

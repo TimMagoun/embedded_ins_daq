@@ -67,9 +67,9 @@
 - **Hardware validation:** Do not accept vague hardware checks like “looks correct” or “file contains data.” Hardware verification must include concrete scenarios, explicit pass/fail criteria, and where applicable an offline comparison against known truth data.
 - **Smoke Cases:** `platform_smoke` is the canonical bring-up case (logs identity, port mappings, monotonicity, and periodic UART0 health).
 - **Commit Workflow:** Unless scoped down by the user, enforce this exact order before committing:
-  1. `uv run --group dev pre-commit run --all-files`
+  1. `uv run pre-commit run --all-files`
   1. `ctest` (targeted or full host)
-  1. `uv run --group dev python3 tools/check_host_coverage.py`
+  1. `uv run python3 tools/check_host_coverage.py`
   1. `./tools/run_cppcheck.sh --strict`
 - **Review Deliverable:** When closing a task or PR, summarize the specific contracts verified, fault paths exercised, and any blind spots. "Tests pass" is not an acceptable summary.
 
