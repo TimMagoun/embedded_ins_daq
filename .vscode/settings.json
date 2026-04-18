@@ -1,6 +1,6 @@
 {
   "clangd.arguments": [
     "--clang-tidy",
-    "--query-driver=/home/agent/.espressif/tools/riscv32-esp-elf/**/riscv32-esp-elf-g++,/usr/bin/c++"
+    "--query-driver=/home/agent/.espressif/tools/riscv32-esp-elf/**/riscv32-esp-elf-gcc,/home/agent/.espressif/tools/riscv32-esp-elf/**/riscv32-esp-elf-g++,/usr/bin/c++"
   ]
 }

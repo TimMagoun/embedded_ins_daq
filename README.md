@@ -13,9 +13,14 @@ source ./tools/setup.sh
 **Initial Workspace Setup (Run Once):**
 
 ```bash
+# Install uv workspace
 uv sync
+# Install pre-commit hooks
 uv run pre-commit install
-idf.py set-target esp32p4  # Sets ESP32-P4 v1.3 compatibility defaults
+# Install LLVM 22 for clangd
+sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 22 all
+# Set target to ESP32-P4 v1.3
+idf.py set-target esp32p4
 ```
 
 ## 2. Standard Build & Device Workflow
@@ -25,6 +30,9 @@ Use standard ESP-IDF commands for local development:
 - **Build:** `idf.py build`
 - **Flash & Monitor:** `idf.py -p /dev/ttyACM0 flash monitor`
 - **Generate combined compile commands:** `python3 tools/generate_compile_commands.py`
+- **Run clangd diagnostics:** `uv run python3 tools/run_clangd_checks.py`
+
+`tools/run_clangd_checks.py` expects `clangd` on `PATH` and uses the `clangd.arguments` array in `.vscode/settings.json` exactly as written.
 
 *Note: `UART0` is strictly reserved for the console, boot logs, and panic output.*
 
@@ -34,11 +42,9 @@ Run these gates sequentially before creating a commit. Tests must verify interfa
 
 ```bash
 uv run pre-commit run --all-files
-cmake -S host_tests -B build_host
-cmake --build build_host
-ctest --test-dir build_host --output-on-failure
-uv run python3 tools/check_host_coverage.py
+uv run python3 tools/check_host_coverage.py # Required if C/C++ code changed
 uv run ./tools/run_cppcheck.py --strict # Required if C/C++ code changed
+uv run python3 tools/run_clangd_checks.py # Required if C/C++ code changed
 ```
 
 `host_tests/` fetches GoogleTest automatically during CMake configuration, so no separate system GTest install is required.
