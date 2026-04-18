@@ -24,6 +24,7 @@
 - **Hardware (`docs/hardware/`):** Stable, reusable references (e.g., `esp32-p4-nano/capabilities.md` and `pin-planning.md`).
 - **Superpowers (`docs/superpowers/`):** Ephemeral or session-based artifacts (split into `/specs/` and `/plans/`).
 - **Visuals:** Use Mermaid diagrams to clarify architecture, interfaces, and state flows. Avoid purely decorative diagrams.
+- **Specs and Plans:** Treat specs and implementation plans as engineering artifacts, not prose summaries. They must lock in architecture boundaries, behavioral contracts, and verification strategy before implementation starts.
 
 ### 5. Coding Standards & Architecture
 
@@ -42,6 +43,11 @@
   - **Algorithms:** Should be in implementation files, with clear documentation of their purpose and usage.
   - *Critical:* Data structures should be immutable, and algorithms should be stateless.
   - **Testability:** Algorithms should be testable in isolation, without requiring hardware specific types. Use interfaces to allow for easy mocks of hardware.
+- **Architecture for testability:** For any nontrivial subsystem, prefer explicit separation into:
+  - **Core:** platform-agnostic data structures and algorithms
+  - **Interfaces:** narrow contracts for clocks, queues, byte sources, file sinks, and status/fault reporting
+  - **Adapters:** ESP32/FreeRTOS bindings on target and deterministic host implementations in tests
+- **Hot-path adapters:** Keep adapters as thin translation layers only. They must not absorb chunking policy, fault policy, serialization, checksum logic, or session semantics. Prefer batch handoff, avoid repeated payload copies, and avoid indirect dispatch in per-byte or ISR-adjacent paths unless measured and justified.
 - **ISR Strict Rules:**
   - Must use `IRAM_ATTR` and FreeRTOS `_FromISR` APIs.
   - **NEVER** use blocking functions, logging (`ESP_LOGx`), or float math inside an ISR.
@@ -50,6 +56,15 @@
 
 - **Frameworks:** Decouple algorithms from the HAL.
 - **Testing Philosophy:** Write atomic tests. High line coverage is insufficient; tests must verify interface contracts, boundary conditions, and fault paths.
+- **Verification depth:** For specs, plans, and implementations, require verification of:
+  - happy paths
+  - boundary conditions (`N-1`, `N`, `N+1`; just-below / exactly-at / just-above thresholds)
+  - illegal lifecycle transitions
+  - repeated start/stop or re-entry cycles
+  - post-fault invariants
+  - multi-source interleaving and ordering
+  - on-device resource headroom and fault observability
+- **Hardware validation:** Do not accept vague hardware checks like “looks correct” or “file contains data.” Hardware verification must include concrete scenarios, explicit pass/fail criteria, and where applicable an offline comparison against known truth data.
 - **Smoke Cases:** `platform_smoke` is the canonical bring-up case (logs identity, port mappings, monotonicity, and periodic UART0 health).
 - **Commit Workflow:** Unless scoped down by the user, enforce this exact order before committing:
   1. `uv run --group dev pre-commit run --all-files`
@@ -57,3 +72,10 @@
   1. `uv run --group dev python3 tools/check_host_coverage.py`
   1. `./tools/run_cppcheck.sh --strict`
 - **Review Deliverable:** When closing a task or PR, summarize the specific contracts verified, fault paths exercised, and any blind spots. "Tests pass" is not an acceptable summary.
+
+### 7. Planning Lessons Learned
+
+- **Do not stop at “use C++” or “separate concerns” as abstract guidance.** The plan must name the concrete file layout that enforces the separation. In this repository, the first-pass plan was too vague because core logic and ESP-IDF integration still lived in the same module files. The corrected approach is to split into `core/`, `interfaces/`, and `adapters/{host,esp32}/`.
+- **Do not treat adapter boundaries as automatically free.** The first-pass plan named adapters but did not constrain hot-path behavior. The corrected plan requires thin translation-only adapters, batch-oriented handoff, minimal ISR work, and explicit avoidance of repeated payload copying or per-byte virtual dispatch.
+- **Do not accept shallow verification sections.** The first-pass plan had basic happy-path checks and coarse hardware observations. The corrected approach requires detailed behavioral matrices for host tests and explicit device scenarios covering edge conditions, illegal transitions, saturation, storage faults, and post-fault invariants.
+- **Do not leave hardware validation qualitative.** The corrected plan requires explicit pass/fail criteria plus offline comparison against known generator truth data for bytes, records, trigger counts, and sync-edge counts.
