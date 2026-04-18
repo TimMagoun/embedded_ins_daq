@@ -32,3 +32,4 @@ Diagnostics:
       - readability-magic-numbers
     CheckOptions:
       readability-function-cognitive-complexity.IgnoreMacros: true
+      cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true

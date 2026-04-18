@@ -111,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
         esp_entries = load_compile_commands(esp_build_dir() / "compile_commands.json")
         merged_entries = merge_compile_commands(host_entries, esp_entries)
         write_compile_commands(output_file(), merged_entries)
+        print(f"Generated compile_commands.json at {output_file()}")
     except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as exc:
         print(f"generate_compile_commands.py: {exc}", file=sys.stderr)
         return 1

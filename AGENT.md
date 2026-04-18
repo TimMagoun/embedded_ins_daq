@@ -56,6 +56,7 @@
 
 - **Frameworks:** Decouple algorithms from the HAL.
 - **Testing Philosophy:** Write atomic tests. High line coverage is insufficient; tests must verify interface contracts, boundary conditions, and fault paths.
+- **Test naming:** Name tests `Should<Postcondition>Given<Precondition>` so the single behavior under test is obvious from the identifier alone.
 - **Verification depth:** For specs, plans, and implementations, require verification of:
   - happy paths
   - boundary conditions (`N-1`, `N`, `N+1`; just-below / exactly-at / just-above thresholds)

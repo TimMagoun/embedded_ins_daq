@@ -41,6 +41,8 @@ uv run python3 tools/check_host_coverage.py
 ./tools/run_cppcheck.sh --strict # Required if C/C++ code changed
 ```
 
+`host_tests/` fetches GoogleTest automatically during CMake configuration, so no separate system GTest install is required.
+
 ## 5. Documentation Rules
 
 - **Public Headers (`main/include/`):** Document **interface contracts only**. Detail observable behavior, ownership, preconditions, error returns, and fault-reporting. Do not expose internal algorithms or state.
