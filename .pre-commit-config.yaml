@@ -35,3 +35,17 @@ repos:
         entry: uv run --group dev clang-format -i
         language: system
         files: ^(main|host_tests)/.*\.(c|cc|cpp|h|hpp)$
+
+      - id: host-coverage
+        name: host-coverage
+        entry: uv run --group dev python3 tools/check_host_coverage.py
+        language: system
+        pass_filenames: false
+        stages: [manual]
+
+      - id: cppcheck
+        name: cppcheck
+        entry: ./tools/run_cppcheck.sh
+        language: system
+        pass_filenames: false
+        stages: [manual]
