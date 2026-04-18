@@ -7,3 +7,28 @@ CompileFlags:
     - -fstrict-volatile-bitfields
     - -fno-tree-switch-conversion
     - -march=*
+Diagnostics:
+  ClangTidy:
+    Add:
+      - bugprone-*
+      - cert-*
+      - clang-analyzer-*
+      - cppcoreguidelines-*
+      - misc-*
+      - modernize-*
+      - performance-*
+      - portability-*
+      - readability-*
+    Remove:
+      - cppcoreguidelines-avoid-c-arrays
+      - cppcoreguidelines-avoid-do-while
+      - cppcoreguidelines-avoid-magic-numbers
+      - cppcoreguidelines-pro-type-vararg
+      - cppcoreguidelines-pro-bounds-array-to-pointer-decay
+      - cppcoreguidelines-pro-type-union-access
+      - modernize-use-trailing-return-type
+      - modernize-avoid-c-arrays
+      - readability-identifier-length
+      - readability-magic-numbers
+    CheckOptions:
+      readability-function-cognitive-complexity.IgnoreMacros: true

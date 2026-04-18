@@ -15,4 +15,16 @@ target_include_directories(project_skeleton PRIVATE
     ../main/include
 )
 
+target_compile_options(project_skeleton PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Warray-bounds=2
+    -Wformat=2
+    -Wshadow
+    -Wconversion
+    -Wsign-conversion
+    -Wundef
+)
+
 add_test(NAME project_skeleton COMMAND $<TARGET_FILE:project_skeleton>)
