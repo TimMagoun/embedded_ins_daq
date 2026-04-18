@@ -42,6 +42,8 @@ uv run python3 tools/check_host_coverage.py
 ```
 
 `host_tests/` fetches GoogleTest automatically during CMake configuration, so no separate system GTest install is required.
+`tools/check_host_coverage.py` also writes an HTML report to `build_host_coverage/coverage/index.html` with the overall percentage and per-file coverage breakdown.
+`tools/serve_host_coverage.py` runs a webserver that allows inspection of the HTML coverage report.
 
 ## 5. Documentation Rules
 

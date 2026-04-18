@@ -13,6 +13,8 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUILD_DIR = REPO_ROOT / "build_host_coverage"
 SOURCE_DIR = REPO_ROOT / "host_tests"
 MAIN_DIR = REPO_ROOT / "main"
+REPORT_DIR = BUILD_DIR / "coverage"
+REPORT_FILE = REPORT_DIR / "index.html"
 COVERAGE_THRESHOLD = 90.0
 
 JOBS = os.cpu_count()
@@ -73,15 +75,37 @@ def read_coverage_summary() -> float:
     return float(summary["line_percent"])
 
 
+def write_coverage_report() -> pathlib.Path:
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    run(
+        [
+            "gcovr",
+            "-j",
+            str(JOBS),
+            "--root",
+            str(REPO_ROOT),
+            "--filter",
+            str(MAIN_DIR),
+            "--object-directory",
+            str(BUILD_DIR),
+            "--html-details",
+            str(REPORT_FILE),
+        ]
+    )
+    return REPORT_FILE
+
+
 def main() -> int:
     try:
         configure_build()
         build_and_test()
         line_coverage = read_coverage_summary()
+        report_file = write_coverage_report()
     except subprocess.CalledProcessError as exc:
         return exc.returncode
 
     print(f"Host test line coverage: {line_coverage:.2f}%")
+    print(f"HTML coverage report: {report_file}")
     if line_coverage <= COVERAGE_THRESHOLD:
         print(
             f"Coverage gate failed: expected > {COVERAGE_THRESHOLD:.2f}%, got {line_coverage:.2f}%",
