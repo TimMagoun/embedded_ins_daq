@@ -1,21 +1,39 @@
 #include "c_linkage.h"
-
-#if defined(ESP_PLATFORM)
+#include "daq_config.hpp"
+#include "daq_status.hpp"
 #include "esp_log.h"
-#endif
+#include "validate_config.hpp"
 
 namespace {
-
-#if defined(ESP_PLATFORM)
 constexpr char kTag[] = "daq_app";
-#endif
-
 }  // namespace
 
 BEGIN_EXTERN_C
 void app_main(void) {
-#if defined(ESP_PLATFORM)
   ESP_LOGI(kTag, "DAQ boot");
-#endif
+
+  daq::StatusFaultHub status_hub;
+  daq::StatusEvent validation_started{};
+  validation_started.origin = daq::StatusOrigin::kConfig;
+  validation_started.code = daq::StatusCode::kConfigValidationStarted;
+  validation_started.state = daq::State::kInit;
+  status_hub.ReportStatus(validation_started);
+
+  const daq::FaultCode fault = daq::validate_config(daq::kDefaultConfig);
+  if (!daq::is_ok(fault)) {
+    ESP_LOGE(kTag, "Config validation failed: origin=%u detail=%u",
+             static_cast<unsigned>(fault.origin),
+             static_cast<unsigned>(fault.detail));
+    status_hub.ReportFault(fault);
+    return;
+  }
+
+  daq::StatusEvent validation_succeeded{};
+  validation_succeeded.origin = daq::StatusOrigin::kConfig;
+  validation_succeeded.code = daq::StatusCode::kConfigValidationSucceeded;
+  validation_succeeded.state = daq::State::kReady;
+  status_hub.ReportStatus(validation_succeeded);
+
+  ESP_LOGI(kTag, "Config validation succeeded");
 }
 END_EXTERN_C

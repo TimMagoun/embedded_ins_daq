@@ -5,9 +5,9 @@
 namespace daq {
 
 enum class State : std::uint8_t {
-  kBooting = 0,
-  kIdle = 1,
-  kCapturing = 2,
+  kInit = 0,
+  kReady = 1,
+  kRunning = 2,
   kFaulted = 3,
 };
 
