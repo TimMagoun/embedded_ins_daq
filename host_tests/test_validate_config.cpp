@@ -2,8 +2,6 @@
 
 #include "daq_config.hpp"
 #include "daq_faults.hpp"
-#include "daq_status.hpp"
-#include "status_fault_hub.hpp"
 #include "validate_config.hpp"
 
 namespace {
@@ -12,9 +10,6 @@ using daq::ComponentName;
 using daq::DaqConfig;
 using daq::FaultCode;
 using daq::FaultDetail;
-using daq::StatusCode;
-using daq::StatusEvent;
-using daq::StatusFaultHub;
 using daq::validate_config;
 
 constexpr FaultCode kOk{};
@@ -67,10 +62,25 @@ TEST(ValidateConfig, ShouldReturnOkGivenIdleGapAtMaximumBoundary) {
   EXPECT_EQ(validate_config(config), kOk);
 }
 
+TEST(ValidateConfig,
+     ShouldReportEnabledUartMaskMismatchGivenMaskPopulationDiffersFromCount) {
+  DaqConfig config = daq::kDefaultConfig;
+  config.enabled_uart_count = 1U;
+  config.enabled_uart_mask = 0x03U;
+  expect_fault(validate_config(config), FaultDetail::kEnabledUartMaskMismatch);
+}
+
 TEST(ValidateConfig, ShouldReportInvalidQueueCapacityGivenZeroQueueCapacity) {
   DaqConfig config = daq::kDefaultConfig;
   config.record_queue_capacity = 0U;
   expect_fault(validate_config(config), FaultDetail::kInvalidQueueCapacity);
+}
+
+TEST(ValidateConfig,
+     ShouldReportInvalidSdBlockSizeGivenBlockSizeOutsideSupportedMultiple) {
+  DaqConfig config = daq::kDefaultConfig;
+  config.sd_block_size_bytes = daq::kDefaultSdBlockSizeBytes + 1U;
+  expect_fault(validate_config(config), FaultDetail::kInvalidSdBlockSize);
 }
 
 TEST(ValidateConfig,
@@ -89,45 +99,13 @@ TEST(ValidateConfig,
   expect_fault(validate_config(config), FaultDetail::kSyncMaskWithoutPort);
 }
 
-TEST(StatusFaultHub,
-     ShouldPreserveFirstFailureReasonGivenMultipleFaultReports) {
-  StatusFaultHub hub;
-
-  StatusEvent started{};
-  started.origin = ComponentName::kConfig;
-  started.code = StatusCode::kConfigValidationStarted;
-  started.state = daq::State::kInit;
-  started.detail = 11U;
-  hub.ReportStatus(started);
-
-  FaultCode first_fault{};
-  first_fault.origin = ComponentName::kConfig;
-  first_fault.detail = FaultDetail::kChunkSizeExceedsBuffer;
-  hub.ReportFault(first_fault);
-
-  FaultCode second_fault{};
-  second_fault.origin = ComponentName::kConfig;
-  second_fault.detail = FaultDetail::kInvalidQueueCapacity;
-  hub.ReportFault(second_fault);
-
-  const daq::StatusSnapshot snapshot = hub.snapshot();
-
-  EXPECT_EQ(snapshot.active_fault.origin, ComponentName::kConfig);
-  EXPECT_EQ(snapshot.active_fault.detail, FaultDetail::kChunkSizeExceedsBuffer);
-  EXPECT_EQ(snapshot.last_status.origin, ComponentName::kConfig);
-  EXPECT_EQ(snapshot.last_status.code, StatusCode::kConfigValidationStarted);
-}
-
-TEST(StatusSinkInterface, ShouldAcceptStatusFaultHubGivenStatusSinkReference) {
-  StatusFaultHub hub;
-  daq::StatusSinkInterface& sink = hub;
-  StatusEvent ready{};
-  ready.origin = ComponentName::kStatusManager;
-  ready.code = StatusCode::kReady;
-  ready.state = daq::State::kReady;
-  sink.ReportStatus(ready);
-
-  EXPECT_EQ(hub.snapshot().last_status.code, StatusCode::kReady);
+TEST(ValidateConfig,
+     ShouldReportTriggerMaskWithoutPortGivenTriggerMaskTargetsDisabledPort) {
+  DaqConfig config = daq::kDefaultConfig;
+  config.enabled_uart_count = 1U;
+  config.enabled_uart_mask = 0x01U;
+  config.enabled_trigger_mask = 0x02U;
+  expect_fault(validate_config(config), FaultDetail::kTriggerMaskWithoutPort);
 }
 
 }  // namespace
