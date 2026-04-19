@@ -1,8 +1,8 @@
 idf_component_register(
     SRCS
         "app_main.cpp"
+        "state_manager.cpp"
         "validate_config.cpp"
-        "status_fault_hub.cpp"
     INCLUDE_DIRS
         "include"
         "interfaces"

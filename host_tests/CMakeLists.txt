@@ -56,7 +56,6 @@ endfunction()
 add_executable(project_skeleton
     test_project_skeleton.cpp
     ../main/validate_config.cpp
-    ../main/status_fault_hub.cpp
 )
 
 configure_host_test_target(project_skeleton)
@@ -66,9 +65,17 @@ gtest_discover_tests(project_skeleton)
 add_executable(validate_config_tests
     test_validate_config.cpp
     ../main/validate_config.cpp
-    ../main/status_fault_hub.cpp
 )
 
 configure_host_test_target(validate_config_tests)
 
 gtest_discover_tests(validate_config_tests)
+
+add_executable(state_manager_tests
+    test_state_manager.cpp
+    ../main/state_manager.cpp
+)
+
+configure_host_test_target(state_manager_tests)
+
+gtest_discover_tests(state_manager_tests)
