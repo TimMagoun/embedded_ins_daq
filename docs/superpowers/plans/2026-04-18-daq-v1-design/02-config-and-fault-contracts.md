@@ -18,6 +18,8 @@
 - Put all v1 compile-time limits in `daq_config.hpp`: enabled UART count, chunk sizes, idle-gap thresholds, queue capacities, SD block size, and trigger/sync enable masks.
 - Implement `validate_config()` as a pure function returning either `DAQ_CONFIG_OK` or a specific fault code.
 - Define a lightweight status/fault sink API that can accept reports from non-timing-critical code now and queue-backed transport later.
+- Keep `StatusEvent` as a raw module fact carrying origin and code only, without an embedded lifecycle-state snapshot.
+- Reserve lifecycle interpretation for `StateManager`; config and storage modules report facts such as validation success or media availability rather than deciding global state.
 - Keep validation independent from ESP-IDF driver handles so it is fully host-testable.
 - Keep this layer pure C++ with no `extern "C"` surface; it should depend on typed enums and constexpr configuration only.
 - Put shared status/fault value types in headers and keep all validation algorithms free of runtime transport details.

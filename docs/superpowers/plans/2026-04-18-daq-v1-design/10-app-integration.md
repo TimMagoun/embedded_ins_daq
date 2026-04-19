@@ -28,6 +28,7 @@
   - `sd_writer_task` on the storage/control-oriented HP core
 - Keep control commands coarse and out of the hot path.
 - Ensure all module start/stop/fault callbacks line up with the state machine’s authority.
+- Route module-emitted status events and fault events into `StateManager` first, then mirror the complete event stream into `StatusFaultHub` for diagnostics.
 - Keep orchestration in C++ objects with explicit ownership and static allocation.
 - Compose the application from `core` units plus injected `interfaces` implemented by either `adapters/esp32` or `adapters/host`.
 - Keep `daq_app.cpp` free of direct algorithm logic; it should wire dependencies, ownership, task lifetimes, and command flow only.
@@ -44,8 +45,10 @@
   - interface contract conformance between core expectations and host adapters
   - host adapter behavior for deterministic clocks, file writes, and injected queue pressure
   - startup order
+  - readiness aggregation from config-valid and storage-mounted status events
   - start-session wiring
   - stop-session wiring
+  - storage removal revokes readiness before any later start
   - propagated fault causes from any module
   - no record acceptance outside `running`
   - adapter substitution does not change core-observable behavior for the same event batches

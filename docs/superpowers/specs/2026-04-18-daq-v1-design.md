@@ -34,9 +34,9 @@ The prototype uses four states:
 
 Transitions:
 
-- `init -> ready` after compile-time configuration validates successfully
-- `ready -> running` on start command
-- `running -> ready` on stop command
+- `init -> ready` after the state manager has observed all required readiness facts, including compile-time configuration success and storage availability
+- `ready -> running` on start-command status
+- `running -> ready` on stop-command status
 - `* -> faulted` on any irrecoverable fault
 
 The `faulted` state is terminal for v1.
@@ -77,6 +77,9 @@ The control plane decides whether a session is active and records system health:
 - coarse commands to the data plane
 - centralized status and fault reporting
 
+Control-plane modules emit raw status and fault facts. The control plane
+aggregates those facts into the authoritative global lifecycle state.
+
 The control plane must not sit in the hot path for byte capture, ISR timestamping, or file writes.
 
 ```mermaid
@@ -95,15 +98,17 @@ flowchart LR
         SD["SdWriter"]
     end
 
-    VC --> SM
+    VC -->|status/fault| SM
+    SD -->|status/fault| SM
+    Platform["Command/Platform Sources"] -->|status/fault| SM
     SM -->|arm/start/stop/fault_shutdown| UC
     SM -->|arm/start/stop/fault_shutdown| TC
     SM -->|start_session/stop_session| MX
     SM -->|start_session/stop_session| SD
-    UC -->|status/fault| SF
-    TC -->|status/fault| SF
-    MX -->|status/fault| SF
-    SD -->|status/fault| SF
+    UC -->|status/fault| SM
+    TC -->|status/fault| SM
+    MX -->|status/fault| SM
+    SM -->|all status/fault events| SF
     MC --> UC
     MC --> TC
 ```
@@ -179,10 +184,13 @@ Responsibilities:
 
 - hold the current state
 - validate state transitions
-- receive coarse events such as `config_ok`, `start`, `stop`, and `fault`
+- receive status events and fault events from modules
+- track readiness prerequisites internally instead of relying on callers to decide when the system is ready
 - emit coarse commands such as `arm`, `start_session`, `stop_session`, and `fault_shutdown`
+- emit lifecycle status events that explain accepted and rejected transitions
 
-The state manager decides. It does not inspect raw captured data.
+The state manager decides. It does not inspect raw captured data and it does
+not delegate transition criteria to callers.
 
 #### `validate_config(...)`
 
@@ -209,20 +217,42 @@ Responsibilities:
 
 - collect debug and fault events
 - preserve the reason for failures
+- retain the emitted event sequence so the system timeline can be reconstructed
 - support later diagnostics
 
 It is not part of the timing-critical path and capture must not depend on it.
 
+## Event Model
+
+Every module reports lightweight facts into the control plane.
+
+`StatusEvent` contains:
+
+- `origin`
+- `code`
+
+The event does not contain a lifecycle state snapshot. Lifecycle state is owned
+only by `StateManager`.
+
+Interpretation rules:
+
+- modules emit local facts, not lifecycle conclusions
+- `StateManager` interprets `(origin, code)` pairs into readiness, command, and lifecycle meaning
+- `StateManager` emits its own status events for accepted transitions, rejected commands, and other lifecycle milestones
+- `StatusFaultHub` records both module-originated facts and state-manager lifecycle events so postmortem inspection can reconstruct what happened
+
 ## Session Semantics
 
-The system is armed in `ready`, but the active recording session begins only on `start`.
+The system is armed in `ready`, but the active recording session begins only
+after `StateManager` accepts a start-command status event.
 
 Rules:
 
-- `start` captures a session start timestamp
+- a module emits a start-command status event
+- `StateManager` captures a session start timestamp when it accepts that command
 - only records with timestamps greater than or equal to the session start time are eligible for file logging
 - any UART bytes or trigger/sync events observed before `start` are discarded
-- `stop` ends record acceptance and closes the session cleanly
+- a stop-command status event ends record acceptance and closes the session cleanly
 
 This makes the session boundary explicit and ensures the file contains only in-session data.
 
