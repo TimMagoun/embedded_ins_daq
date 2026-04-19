@@ -1,0 +1,7 @@
+interface:
+  display_name: "Atomic Commits"
+  short_description: "Split changes into minimal commits"
+  default_prompt: "Use $atomic-commits to split a dirty worktree into minimal atomic commits, staging only the exact hunks or lines needed for each commit."
+
+policy:
+  allow_implicit_invocation: true
