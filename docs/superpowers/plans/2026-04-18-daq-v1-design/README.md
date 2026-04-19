@@ -29,6 +29,14 @@ ______________________________________________________________________
 - Any function that must be visible to C code should be declared inside an `extern "C"` block in headers and defined with matching linkage in implementation files.
 - Keep `extern "C"` scopes narrow. Do not wrap whole C++ classes or entire headers unless the file is intentionally a C ABI surface.
 
+## Logging Rules
+
+- Use `ESP_LOGx` only in target-only ESP-IDF source files with a static `TAG`.
+- Keep shared code compiled by host tests free of `esp_log.h` and `ESP_LOGx`; report observability there through return values, status events, or injected interfaces.
+- Use `E` for faults and unrecoverable failures, `W` for recoverable abnormal states, `I` for boot and lifecycle transitions, `D` for detailed runtime traces, and `V` only for very noisy traces that stay off by default.
+- Never log from an ISR.
+- Proactively log task high-water marks and heap availability at meaningful lifecycle points on the target.
+
 ## Core / Interface / Adapter Rules
 
 - `core/` contains platform-agnostic data structures and algorithms only.

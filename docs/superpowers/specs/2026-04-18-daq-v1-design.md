@@ -409,6 +409,18 @@ The planned peripheral set for v1 is:
 - GPIO output for trigger generation in v1
 - `SDMMC_HOST_SLOT_1` for the onboard TF slot
 
+### Logging and Observability
+
+Target-side runtime logging is part of the bring-up contract, but it must stay out of shared code that host tests compile.
+
+Rules:
+
+- Use `ESP_LOGx` only in target-only ESP-IDF source files with a static `TAG`.
+- Keep shared `main/` code compiled by host tests free of `esp_log.h` and `ESP_LOGx`; observability there should flow through return values, status events, or injected interfaces.
+- Use `E` for faults and unrecoverable failures, `W` for recoverable abnormal states, `I` for boot and lifecycle transitions, `D` for detailed runtime traces, and `V` only for very noisy traces that stay off by default.
+- Never log from an ISR.
+- Proactively log task high-water marks and heap availability at meaningful lifecycle points on the target.
+
 Upgrade seams are intentionally preserved:
 
 - UART receive starts with ESP-IDF driver events, but the backend should be replaceable by DMA later

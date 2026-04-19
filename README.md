@@ -36,6 +36,14 @@ Use standard ESP-IDF commands for local development:
 
 *Note: `UART0` is strictly reserved for the console, boot logs, and panic output.*
 
+### ESP-Side Logging Policy
+
+- Use `ESP_LOGx` only in target-only ESP-IDF source files with a static `TAG`.
+- Keep shared code compiled by host tests free of `esp_log.h` and `ESP_LOGx`; observability there should flow through return values, status events, or interfaces.
+- Use `E` for faults, `W` for recoverable abnormal states, `I` for boot and lifecycle events, `D` for detailed runtime traces, and `V` only for very noisy traces.
+- Never log from an ISR.
+- Proactively log task high-water marks and heap availability at meaningful lifecycle points on the target.
+
 ## 3. Pre-Commit Quality Gates
 
 Run these gates sequentially before creating a commit. Tests must verify interface contracts, boundary conditions, and fault-handling paths—line coverage alone is insufficient.

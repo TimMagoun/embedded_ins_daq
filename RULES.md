@@ -12,3 +12,4 @@
 - Never add tests when writing host tooling, this bloats the repository
 - Host quality gates must work from the repository without requiring a separately installed GoogleTest package.
 - All python scripts must be invoked through the repository virtual environment (`./.venv/bin/python` or `uv run python`).
+- Shared code that is compiled by host tests must remain free of ESP-IDF logging calls. Keep `ESP_LOGx` and `esp_log.h` in target-only source files.

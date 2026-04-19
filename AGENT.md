@@ -34,7 +34,13 @@
   - **ALWAYS** use logging to be able to debug issues after a failure. Remember that testing on hardware is expensive and time-consuming.
   - **ALWAYS** pay attention to memory lifetimes and ownership. Be mindful of stack vs heap allocation.
 - **Error Handling:** HAL/Hardware functions must return `esp_err_t` and never fail silently. Use `ESP_ERROR_CHECK()` for initialization, but handle errors gracefully at runtime.
-- **Logging & Telemetry:** Use standard `ESP_LOGx` with a static `TAG` (never `printf`). Proactively log FreeRTOS task high-water marks and heap availability.
+- **Logging & Telemetry:** Use standard `ESP_LOGx` with a static `TAG` in target-only ESP-IDF source files (never `printf`). Shared files compiled by host tests must not include `esp_log.h` or call `ESP_LOGx`; they should report observability through return values, status events, or injected interfaces.
+  - `E`: faults, unrecoverable runtime failures, and panic-adjacent conditions.
+  - `W`: recoverable abnormal states, redundant lifecycle requests, and degraded headroom.
+  - `I`: boot, config validation results, peripheral bring-up, and lifecycle transitions.
+  - `D`: detailed runtime traces needed for bring-up and postmortem debugging.
+  - `V`: very noisy traces that stay off by default and should be used sparingly.
+  - Proactively log FreeRTOS task high-water marks and heap availability at meaningful lifecycle points.
 - **Separation of Concerns:**
   - **Documentation style:** Use Doxygen-style comments only. Prefer `///` or `/** ... */`, with `@brief`, `@param`, `@return`, and `@note` when they add contract clarity.
   - **Headers:** Document *contracts only* (behavior, ownership, edge-cases, error returns). Do not leak implementation details.
