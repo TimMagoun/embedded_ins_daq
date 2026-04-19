@@ -88,3 +88,9 @@
 - **Do not treat adapter boundaries as automatically free.** The first-pass plan named adapters but did not constrain hot-path behavior. The corrected plan requires thin translation-only adapters, batch-oriented handoff, minimal ISR work, and explicit avoidance of repeated payload copying or per-byte virtual dispatch.
 - **Do not accept shallow verification sections.** The first-pass plan had basic happy-path checks and coarse hardware observations. The corrected approach requires detailed behavioral matrices for host tests and explicit device scenarios covering edge conditions, illegal transitions, saturation, storage faults, and post-fault invariants.
 - **Do not leave hardware validation qualitative.** The corrected plan requires explicit pass/fail criteria plus offline comparison against known generator truth data for bytes, records, trigger counts, and sync-edge counts.
+
+### 8. Session Lessons Learned
+
+- **When simplifying an event API, audit every payload-bearing transition immediately.** If an event shape drops fields, identify which transitions lose required data such as timestamps, boundaries, or identifiers, and define the replacement path before implementing the refactor.
+- **Do not let test files drift across subsystem boundaries.** If a test belongs to a different production unit than the file name suggests, create a new test file and CMake target as soon as that second subsystem appears instead of parking it in a convenient existing file.
+- **Re-open the current subsystem files before refactoring them.** Do not rely on earlier exploration after the worktree has changed. Re-read the touched implementation and headers immediately before editing so refactors are based on the live code, not stale context.
