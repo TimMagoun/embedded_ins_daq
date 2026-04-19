@@ -53,5 +53,7 @@ uv run python3 tools/run_clangd_checks.py # Required if C/C++ code changed
 
 ## 5. Documentation Rules
 
+- **Style:** Use **Doxygen-style comments only** for code documentation. Use `///` or `/** ... */` with tags such as `@brief`, `@param`, `@return`, and `@note` where they clarify the contract.
 - **Public Headers (`main/include/`):** Document **interface contracts only**. Detail observable behavior, ownership, preconditions, error returns, and fault-reporting. Do not expose internal algorithms or state.
-- **Implementation Files (`.c`):** Document the **mechanism**. Detail implementation invariants, edge-case handling, and rationale directly near the code block.
+- **Implementation Files (`.c` / `.cpp`):** Document the **mechanism**. Detail implementation invariants, edge-case handling, and rationale directly near the code block.
+- **Mandatory rule:** Documentation is required for every non-trivial function. Public functions must have Doxygen contract comments in the header. Internal functions must have Doxygen mechanism comments at the source definition site. Non-trivial functions may not be left undocumented.

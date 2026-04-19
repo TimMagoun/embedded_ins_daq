@@ -10,21 +10,20 @@
 TEST(ProjectSkeleton,
      ShouldExposeExpectedCoreTypeShapesGivenSharedPublicTypes) {
   static_assert(std::is_enum_v<daq::State>);
-  static_assert(std::is_enum_v<daq::FaultOrigin>);
+  static_assert(std::is_enum_v<daq::ComponentName>);
   static_assert(std::is_enum_v<daq::RecordType>);
   static_assert(std::is_enum_v<daq::PortId>);
-  static_assert(
-      std::is_same_v<decltype(daq::Timestamp::microseconds), std::uint64_t>);
+  static_assert(std::is_same_v<daq::Timestamp, std::uint64_t>);
 }
 
 TEST(ProjectSkeleton,
      ShouldStoreReadyStateWithoutFaultGivenFreshStatusSnapshot) {
   daq::StatusSnapshot snapshot{};
   snapshot.state = daq::State::kReady;
-  snapshot.active_fault.origin = daq::FaultOrigin::kNone;
+  snapshot.active_fault.origin = daq::ComponentName::kNone;
   snapshot.active_fault.detail = daq::FaultDetail::kNone;
   snapshot.session_active = false;
 
   EXPECT_EQ(snapshot.state, daq::State::kReady);
-  EXPECT_EQ(snapshot.active_fault.origin, daq::FaultOrigin::kNone);
+  EXPECT_EQ(snapshot.active_fault.origin, daq::ComponentName::kNone);
 }

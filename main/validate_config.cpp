@@ -1,10 +1,12 @@
 #include "validate_config.hpp"
 
+#include "daq_types.hpp"
+
 namespace {
 
 constexpr daq::FaultCode config_fault(daq::FaultDetail detail) {
   daq::FaultCode fault{};
-  fault.origin = daq::FaultOrigin::kConfig;
+  fault.origin = daq::ComponentName::kConfig;
   fault.detail = detail;
   return fault;
 }

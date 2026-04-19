@@ -36,8 +36,10 @@
 - **Error Handling:** HAL/Hardware functions must return `esp_err_t` and never fail silently. Use `ESP_ERROR_CHECK()` for initialization, but handle errors gracefully at runtime.
 - **Logging & Telemetry:** Use standard `ESP_LOGx` with a static `TAG` (never `printf`). Proactively log FreeRTOS task high-water marks and heap availability.
 - **Separation of Concerns:**
+  - **Documentation style:** Use Doxygen-style comments only. Prefer `///` or `/** ... */`, with `@brief`, `@param`, `@return`, and `@note` when they add contract clarity.
   - **Headers:** Document *contracts only* (behavior, ownership, edge-cases, error returns). Do not leak implementation details.
-  - **Implementation (`.c`):** Document the *mechanism* (how it works, why the algorithm was chosen).
+  - **Implementation (`.c` / `.cpp`):** Document the *mechanism* (how it works, why the algorithm was chosen).
+  - **Mandatory rule:** Documentation is required for every non-trivial function. If the function is public, its Doxygen contract belongs in the header. If the function is internal, its Doxygen mechanism belongs at the definition site in the source file. Do not leave non-trivial functions undocumented.
 - **Keep data structure and algorithms separate:**
   - **Data structures:** Should be in headers, with clear documentation of their purpose and usage.
   - **Algorithms:** Should be in implementation files, with clear documentation of their purpose and usage.
@@ -78,6 +80,7 @@
   1. Host Validation Gate
   1. `uv run ./tools/run_cppcheck.py --strict`
 - **Review Deliverable:** When closing a task or PR, summarize the specific contracts verified, fault paths exercised, and any blind spots. "Tests pass" is not an acceptable summary.
+  - Include a documentation check: confirm public function contracts are documented in headers with Doxygen, internal non-trivial function mechanism docs live in source with Doxygen, and no non-trivial function was left undocumented.
 
 ### 7. Planning Lessons Learned
 

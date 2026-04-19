@@ -8,20 +8,19 @@
 
 namespace {
 
+using daq::ComponentName;
 using daq::DaqConfig;
 using daq::FaultCode;
 using daq::FaultDetail;
-using daq::FaultOrigin;
 using daq::StatusCode;
 using daq::StatusEvent;
 using daq::StatusFaultHub;
-using daq::StatusOrigin;
 using daq::validate_config;
 
 constexpr FaultCode kOk{};
 
 void expect_fault(FaultCode actual, FaultDetail expected_detail) {
-  EXPECT_EQ(actual.origin, FaultOrigin::kConfig);
+  EXPECT_EQ(actual.origin, ComponentName::kConfig);
   EXPECT_EQ(actual.detail, expected_detail);
 }
 
@@ -95,27 +94,27 @@ TEST(StatusFaultHub,
   StatusFaultHub hub;
 
   StatusEvent started{};
-  started.origin = StatusOrigin::kConfig;
+  started.origin = ComponentName::kConfig;
   started.code = StatusCode::kConfigValidationStarted;
   started.state = daq::State::kInit;
   started.detail = 11U;
   hub.ReportStatus(started);
 
   FaultCode first_fault{};
-  first_fault.origin = FaultOrigin::kConfig;
+  first_fault.origin = ComponentName::kConfig;
   first_fault.detail = FaultDetail::kChunkSizeExceedsBuffer;
   hub.ReportFault(first_fault);
 
   FaultCode second_fault{};
-  second_fault.origin = FaultOrigin::kConfig;
+  second_fault.origin = ComponentName::kConfig;
   second_fault.detail = FaultDetail::kInvalidQueueCapacity;
   hub.ReportFault(second_fault);
 
   const daq::StatusSnapshot snapshot = hub.snapshot();
 
-  EXPECT_EQ(snapshot.active_fault.origin, FaultOrigin::kConfig);
+  EXPECT_EQ(snapshot.active_fault.origin, ComponentName::kConfig);
   EXPECT_EQ(snapshot.active_fault.detail, FaultDetail::kChunkSizeExceedsBuffer);
-  EXPECT_EQ(snapshot.last_status.origin, StatusOrigin::kConfig);
+  EXPECT_EQ(snapshot.last_status.origin, ComponentName::kConfig);
   EXPECT_EQ(snapshot.last_status.code, StatusCode::kConfigValidationStarted);
 }
 
@@ -123,7 +122,7 @@ TEST(StatusSinkInterface, ShouldAcceptStatusFaultHubGivenStatusSinkReference) {
   StatusFaultHub hub;
   daq::StatusSinkInterface& sink = hub;
   StatusEvent ready{};
-  ready.origin = StatusOrigin::kControlPlane;
+  ready.origin = ComponentName::kStatusManager;
   ready.code = StatusCode::kReady;
   ready.state = daq::State::kReady;
   sink.ReportStatus(ready);

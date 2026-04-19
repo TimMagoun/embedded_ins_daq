@@ -14,7 +14,7 @@ void app_main(void) {
 
   daq::StatusFaultHub status_hub;
   daq::StatusEvent validation_started{};
-  validation_started.origin = daq::StatusOrigin::kConfig;
+  validation_started.origin = daq::ComponentName::kConfig;
   validation_started.code = daq::StatusCode::kConfigValidationStarted;
   validation_started.state = daq::State::kInit;
   status_hub.ReportStatus(validation_started);
@@ -29,7 +29,7 @@ void app_main(void) {
   }
 
   daq::StatusEvent validation_succeeded{};
-  validation_succeeded.origin = daq::StatusOrigin::kConfig;
+  validation_succeeded.origin = daq::ComponentName::kConfig;
   validation_succeeded.code = daq::StatusCode::kConfigValidationSucceeded;
   validation_succeeded.state = daq::State::kReady;
   status_hub.ReportStatus(validation_succeeded);

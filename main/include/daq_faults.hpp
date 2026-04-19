@@ -2,16 +2,9 @@
 
 #include <cstdint>
 
-namespace daq {
+#include "daq_types.hpp"
 
-enum class FaultOrigin : std::uint8_t {
-  kNone = 0,
-  kConfig = 1,
-  kControlPlane = 2,
-  kDataPlane = 3,
-  kStorage = 4,
-  kPlatform = 5,
-};
+namespace daq {
 
 enum class FaultDetail : std::uint8_t {
   kNone = 0,
@@ -31,7 +24,7 @@ enum class FaultDetail : std::uint8_t {
 };
 
 struct FaultCode {
-  FaultOrigin origin = FaultOrigin::kNone;
+  ComponentName origin = ComponentName::kNone;
   FaultDetail detail = FaultDetail::kNone;
 };
 
