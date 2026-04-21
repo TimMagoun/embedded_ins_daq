@@ -3,8 +3,6 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "daq_faults.hpp"
-#include "daq_status.hpp"
 #include "daq_types.hpp"
 
 TEST(ProjectSkeleton,

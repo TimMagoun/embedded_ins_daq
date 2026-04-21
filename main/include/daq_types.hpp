@@ -47,4 +47,42 @@ enum class PortId : std::uint8_t {
 /// session gating.
 using Timestamp = std::uint64_t;
 
+/// @brief Distinguishes whether a timing record originated from a generated
+/// trigger pulse or an observed sync edge.
+enum class TimingEventKind : std::uint8_t {
+  kTrigger = 0,
+  kSync = 1,
+};
+
+/// @brief Describes which signal edge was observed for a timing event.
+enum class SignalEdge : std::uint8_t {
+  kNone = 0,
+  kRising = 1,
+  kFalling = 2,
+};
+
+/// @brief Immutable descriptor for one captured UART byte chunk.
+struct UartChunkRecord {
+  PortId port = PortId::kConsole;
+  Timestamp first_byte_timestamp = 0;
+  Timestamp last_byte_timestamp = 0;
+  const std::uint8_t* payload = nullptr;
+  std::uint16_t payload_size = 0;
+};
+
+/// @brief Immutable descriptor for one captured trigger or sync timing event.
+struct TimingEventRecord {
+  PortId port = PortId::kConsole;
+  Timestamp timestamp = 0;
+  TimingEventKind event_kind = TimingEventKind::kTrigger;
+  SignalEdge edge = SignalEdge::kNone;
+};
+
+/// @brief Immutable view over one storage-mux output block.
+struct StorageWriteBlock {
+  const std::uint8_t* data = nullptr;
+  std::uint16_t size = 0;
+  bool flush_after_write = false;
+};
+
 }  // namespace daq

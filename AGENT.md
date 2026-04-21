@@ -64,6 +64,7 @@
 
 - **Frameworks:** Decouple algorithms from the HAL.
 - **Testing Philosophy:** Write atomic tests. High line coverage is insufficient; tests must verify interface contracts, boundary conditions, and fault paths.
+- **No mocked ESP-IDF for core correctness:** Never mock or fake ESP-IDF APIs in host tests to validate algorithm or data-structure correctness. If a test needs fake `gptimer`, UART, GPIO, FreeRTOS, or other IDF calls just to check logic or record layout, the abstraction is wrong: move that logic into `core/` and put the ESP-IDF interaction behind a narrow interface or target-only adapter.
 - **Test naming:** Name tests `Should<Postcondition>Given<Precondition>` so the single behavior under test is obvious from the identifier alone.
 - **Host Validation Gate:** Any validation step that touches host tests must use this sequence:
   1. `cmake -S host_tests -B build_host`
@@ -100,3 +101,4 @@
 - **When simplifying an event API, audit every payload-bearing transition immediately.** If an event shape drops fields, identify which transitions lose required data such as timestamps, boundaries, or identifiers, and define the replacement path before implementing the refactor.
 - **Do not let test files drift across subsystem boundaries.** If a test belongs to a different production unit than the file name suggests, create a new test file and CMake target as soon as that second subsystem appears instead of parking it in a convenient existing file.
 - **Re-open the current subsystem files before refactoring them.** Do not rely on earlier exploration after the worktree has changed. Re-read the touched implementation and headers immediately before editing so refactors are based on the live code, not stale context.
+- **Do not introduce fake ESP-IDF layers in host tests to cover adapter behavior.** If correctness depends on mocking IDF APIs, stop and fix the module boundary instead of building a fake-IDF harness.

@@ -2,7 +2,6 @@
 
 #include <cstdint>
 
-#include "daq_faults.hpp"
 #include "daq_types.hpp"
 
 namespace daq {

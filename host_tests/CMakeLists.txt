@@ -21,6 +21,8 @@ function(configure_host_test_target target_name)
     target_compile_features(${target_name} PRIVATE cxx_std_17)
 
     target_include_directories(${target_name} PRIVATE
+        ../main/adapters/host
+        ../main/core
         ../main/include
         ../main/interfaces
     )
@@ -79,3 +81,12 @@ add_executable(state_manager_tests
 configure_host_test_target(state_manager_tests)
 
 gtest_discover_tests(state_manager_tests)
+
+add_executable(monotonic_time_core_tests
+    test_monotonic_time_core.cpp
+    ../main/adapters/host/host_clock_adapter.cpp
+)
+
+configure_host_test_target(monotonic_time_core_tests)
+
+gtest_discover_tests(monotonic_time_core_tests)
